@@ -1,0 +1,12 @@
+.idea
+*/*/api_config.json
+__pycache__
+exp*/
+*.log
+finetune/
+train_rule/
+salad*/
+log*
+*.whl
+sentclass/
+sni/

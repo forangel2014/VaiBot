@@ -1,0 +1,157 @@
+#!/bin/bash
+
+cd patch
+bash install.sh
+cd ..
+
+CUDA_VISIBLE_DEVICES=0,1,2
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --cuda_devices) CUDA_VISIBLE_DEVICES="$2"; shift ;;
+        --dataset) dataset="$2"; shift ;;
+        --model_name_or_path) model_name_or_path="$2"; shift ;;
+        --meta_exp_dir) meta_exp_dir="$2"; shift ;;
+        --exp_name) exp_name="$2"; shift ;;
+        --method) method="$2"; shift ;;
+        --fuse_method) fuse_method="$2"; shift ;;
+        --ebm_optim_method) ebm_optim_method="$2"; shift ;;
+        --prior) prior="$2"; shift ;;
+        --alignment_loss_weight) alignment_loss_weight="$2"; shift ;;
+        --task_loss_weight) task_loss_weight="$2"; shift ;;
+        --entropy_loss_weight) entropy_loss_weight="$2"; shift ;;
+        --kl_loss_weight) kl_loss_weight="$2"; shift ;;
+        --recon_loss_weight) recon_loss_weight="$2"; shift ;;
+        --flow_loss_weight) flow_loss_weight="$2"; shift ;;
+        --batch_size) batch_size="$2"; shift ;;
+        --num_soft_token) num_soft_token="$2"; shift ;;
+        --selected_layers) selected_layers="$2"; shift ;;
+        --latent_size) latent_size="$2"; shift ;;
+        --encoder_device) encoder_device="$2"; shift ;;
+        --decoder_device) decoder_device="$2"; shift ;;
+        --task_device) task_device="$2"; shift ;;
+        --flow_device) flow_device="$2"; shift ;;
+        --backward_device) backward_device="$2"; shift ;;
+        --num_latent_samples) num_latent_samples="$2"; shift ;;
+        --load_exp) load_exp="$2"; shift ;;
+        --unseen_task_ratio) unseen_task_ratio="$2"; shift ;;
+        --load_epoch) load_epoch="$2"; shift ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+export CUDA_VISIBLE_DEVICES
+
+python_cmd="python main.py"
+args=""
+
+if [ -n "$model_name_or_path" ]; then
+    args="$args --model_name_or_path $model_name_or_path"
+fi
+
+if [ -n "$dataset" ]; then
+    args="$args --dataset $dataset"
+fi
+
+if [ -n "$meta_exp_dir" ]; then
+    args="$args --meta_exp_dir $meta_exp_dir"
+fi
+
+if [ -n "$exp_name" ]; then
+    args="$args --exp_name $exp_name"
+fi
+
+if [ -n "$method" ]; then
+    args="$args --method $method"
+fi
+
+if [ -n "$ebm_optim_method" ]; then
+    args="$args --ebm_optim_method $ebm_optim_method"
+fi
+
+if [ -n "$prior" ]; then
+    args="$args --prior $prior"
+fi
+
+if [ -n "$alignment_loss_weight" ]; then
+    args="$args --alignment_loss_weight $alignment_loss_weight"
+fi
+
+if [ -n "$kl_loss_weight" ]; then
+    args="$args --kl_loss_weight $kl_loss_weight"
+fi
+
+if [ -n "$task_loss_weight" ]; then
+    args="$args --task_loss_weight $task_loss_weight"
+fi
+
+if [ -n "$entropy_loss_weight" ]; then
+    args="$args --entropy_loss_weight $entropy_loss_weight"
+fi
+
+if [ -n "$recon_loss_weight" ]; then
+    args="$args --recon_loss_weight $recon_loss_weight"
+fi
+
+if [ -n "$flow_loss_weight" ]; then
+    args="$args --flow_loss_weight $flow_loss_weight"
+fi
+
+if [ -n "$batch_size" ]; then
+    args="$args --batch_size $batch_size"
+fi
+
+if [ -n "$num_soft_token" ]; then
+    args="$args --num_soft_token $num_soft_token"
+fi
+
+if [ -n "$num_latent_samples" ]; then
+    args="$args --num_latent_samples $num_latent_samples"
+fi
+
+if [ -n "$selected_layers" ]; then
+    args="$args --selected_layers $selected_layers"
+fi
+
+if [ -n "$latent_size" ]; then
+    args="$args --latent_size $latent_size"
+fi
+
+if [ -n "$encoder_device" ]; then
+    args="$args --encoder_device $encoder_device"
+fi
+
+if [ -n "$decoder_device" ]; then
+    args="$args --decoder_device $decoder_device"
+fi
+
+if [ -n "$task_device" ]; then
+    args="$args --task_device $task_device"
+fi
+
+if [ -n "$backward_device" ]; then
+    args="$args --backward_device $backward_device"
+fi
+
+if [ -n "$flow_device" ]; then
+    args="$args --flow_device $flow_device"
+fi
+
+if [ -n "$unseen_task_ratio" ]; then
+    args="$args --unseen_task_ratio $unseen_task_ratio"
+fi
+
+if [ -n "$load_exp" ]; then
+    args="$args --load_exp $load_exp"
+fi
+
+if [ -n "$load_epoch" ]; then
+    args="$args --load_epoch $load_epoch"
+fi
+
+if [ -n "$fuse_method" ]; then
+    args="$args --fuse_method $fuse_method"
+fi
+
+eval "$python_cmd $args"
