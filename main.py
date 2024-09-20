@@ -656,7 +656,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_device', type=int, default=0, help='device to use')
     parser.add_argument('--decoder_device', type=int, default=0, help='device to use')
     parser.add_argument('--task_device', type=int, default=1, help='device to use')
-    parser.add_argument('--flow_device', type=int, default=2, help='device to use')
+    parser.add_argument('--flow_device', type=int, default=1, help='device to use')
     parser.add_argument('--backward_device', type=int, default=0, help='device to use')
     
     parser.add_argument('--lora_r', type=int, default=8)

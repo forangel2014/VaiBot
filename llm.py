@@ -188,7 +188,7 @@ class WrappedLLM(nn.Module):
 
     def solve_task(self, x_id, y_id, new_task_parameters, reduce=True):
         
-        batch_size = x_id.shape[0]
+        batch_size = new_task_parameters.shape[0]
         
         if self.args.fuse_method == "delta":
         

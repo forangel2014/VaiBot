@@ -36,7 +36,7 @@ class Nesy(nn.Module):
 
             self.flow_net = INN.Sequential(
                     #INN.Linear(self.latent_size),
-                    INN.Nonlinear(self.latent_size, method="RealNVP"),
+                    INN.Nonlinear(1, method="RealNVP"),
                     #INN.Linear(self.latent_size),
                     #INN.Nonlinear(self.latent_size, method="RealNVP"),
                     #INN.Linear(self.latent_size)
@@ -88,13 +88,13 @@ class Nesy(nn.Module):
         return text
     
     def flow_forward(self, latent):
-        #params = latent
-        params = self.flow_net(latent.to(torch.float))[0].to(torch.bfloat16)
+        params = latent
+        #params = self.flow_net(latent.to(torch.float))[0].to(torch.bfloat16)
         return params
     
     def flow_backward(self, params):
-        #latent = params
-        latent = self.flow_net.inverse(params.to(torch.float)).to(torch.bfloat16)
+        latent = params
+        #latent = self.flow_net.inverse(params.to(torch.float)).to(torch.bfloat16)
         return latent
 
     def compute_kl_loss(self, mean, log_var):
