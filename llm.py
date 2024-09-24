@@ -219,29 +219,54 @@ class WrappedLLM(nn.Module):
             total_labels = torch.cat((pad_tokens_soft, pad_tokens_x, y_id), dim=1)
             total_labels[total_labels==self.tokenizer.pad_token_id] = -100
 
-            outputs = self.task_model(inputs_embeds=total_embeds, attention_mask=total_attention, labels=total_labels)
+            outputs = self.task_model(inputs_embeds=total_embeds, attention_mask=[total_attention, reduce], labels=total_labels)
 
         return outputs[0]#.float()
 
     def predict_task(self, x_id, new_task_parameters=None):
         
-        if new_task_parameters:
-            inputs = [x_id, new_task_parameters]
-        else:
-            inputs = x_id
+        if self.args.fuse_method == "delta":
             
-        response = self.task_model.generate(inputs=inputs, 
-                                max_length=x_id.shape[1]+self.args.max_token, 
-                                early_stopping=True,
-                                eos_token_id=self.tokenizer.eos_token_id,
-                                pad_token_id=self.tokenizer.pad_token_id,
-                                # do_sample=do_sample,
-                                # stopping_criteria=stopping_criteria
-                                )
+            if new_task_parameters:
+                inputs = [x_id, new_task_parameters]
+            else:
+                inputs = x_id
+                
+            response = self.task_model.generate(inputs=inputs, 
+                                    max_length=x_id.shape[1]+self.args.max_token, 
+                                    early_stopping=True,
+                                    eos_token_id=self.tokenizer.eos_token_id,
+                                    pad_token_id=self.tokenizer.pad_token_id,
+                                    # do_sample=do_sample,
+                                    # stopping_criteria=stopping_criteria
+                                    )
 
-        decoded_tokens = response[0][x_id.shape[1]:]
+            decoded_tokens = response[0][x_id.shape[1]:]
+            
+            text = self.tokenizer.decode(decoded_tokens, skip_special_tokens=True)
 
-        text = self.tokenizer.decode(decoded_tokens, skip_special_tokens=True)
+        elif self.args.fuse_method == "p-tuning":
+            
+            batch_size = x_id.size(0)
+            soft_token_embedding = new_task_parameters.view(batch_size, self.args.num_soft_token, self.config.hidden_size)
+            inputs_embeds = self.task_model.model.embed_tokens(x_id)
+            total_embeds = torch.cat((soft_token_embedding, inputs_embeds), dim=1)
+
+            attention_mask = x_id != self.tokenizer.pad_token_id
+            pad_attention = torch.full_like(soft_token_embedding[:, :, 0], 1, dtype=torch.int)
+            total_attention = torch.cat((pad_attention, attention_mask), dim=1)
+
+            response = self.task_model.generate(inputs_embeds=total_embeds,
+                                    attention_mask=total_attention,
+                                    max_length=x_id.shape[1]+self.args.max_token, 
+                                    early_stopping=True,
+                                    eos_token_id=self.tokenizer.eos_token_id,
+                                    pad_token_id=self.tokenizer.pad_token_id,
+                                    # do_sample=do_sample,
+                                    # stopping_criteria=stopping_criteria
+                                    )
+        
+            text = [self.tokenizer.decode(response[i], skip_special_tokens=True) for i in range(batch_size)]
         
         return text
 

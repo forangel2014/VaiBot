@@ -124,9 +124,11 @@ def create_task_data_lookup(data):
         
         seen_train_knowledge_base.append(train_sample["knowledge"])
         
-    lookup = dict(zip(seen_train_knowledge_base, list(range(len(seen_train_knowledge_base)))))
+    knowledge = list(set(seen_train_knowledge_base))
+        
+    lookup = dict(zip(knowledge, list(range(len(knowledge)))))
     
-    return seen_train_knowledge_base, lookup
+    return knowledge, lookup
 
 def load_task_data(task, unseen_task_ratio=None, unseen_task_num=None, test_sample_ratio=None, test_sample_num=None,
                    num_words=32, num_pertask=1000, task_fields=None):

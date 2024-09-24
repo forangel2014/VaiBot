@@ -1,7 +1,7 @@
 import os
 import time
 import shutil
-#os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8,9"
 import argparse
 import random
 import json
@@ -32,8 +32,9 @@ def train_subtask(nesy, subtask_train_data_loader, subtask_test_data_loader, pro
                     for batch in subtask_test_data_loader:
                         x_batch = batch["input"]
                         x_batch = [prompt_template.format(x) for x in x_batch]
-                        y_batch = batch["target"]              
-                        test_loss += nesy.compute_task_loss(params, x_batch, y_batch)
+                        y_batch = batch["target"]
+                        expanded_params = params.repeat_interleave(len(x_batch), dim=0)
+                        test_loss += nesy.compute_task_loss(expanded_params, x_batch, y_batch)
 
                     test_loss /= len(subtask_test_data)
                     test_loss_ls.append(test_loss.tolist())
@@ -45,8 +46,9 @@ def train_subtask(nesy, subtask_train_data_loader, subtask_test_data_loader, pro
             optimizer.zero_grad()
             x_batch = batch["input"]
             x_batch = [prompt_template.format(x) for x in x_batch]
-            y_batch = batch["target"]              
-            task_loss = nesy.compute_task_loss(params, x_batch, y_batch)
+            y_batch = batch["target"]
+            expanded_params = params.repeat_interleave(len(x_batch), dim=0)
+            task_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
             task_loss.backward()
             optimizer.step()
     
@@ -56,10 +58,13 @@ def pretrain_subtask(args, train_data, test_data, nesy, prompt_template, log):
     
     all_tasks_ids = list(set([sample["sub_task_id"] for sample in test_data]))
     pretrained_params = []
+    
+    all_tasks_ids = all_tasks_ids[150:200]
 
-    for task_id in all_tasks_ids:
+    for task_id in tqdm(all_tasks_ids):
         
         log.writelines(f"training subtask {task_id}\n")
+        log.flush()
 
         subtask_train_data = [data for data in train_data if data["sub_task_id"] == task_id]
         subtask_test_data = [data for data in test_data if data["sub_task_id"] == task_id]
@@ -79,13 +84,18 @@ def pretrain_subtask(args, train_data, test_data, nesy, prompt_template, log):
             
             optimal_params.append(params.detach().cpu())
             
-        pretrained_params.append({
-            "task_id": task_id,
-            "optimal_params": optimal_params
-        })
+        # pretrained_params.append({
+        #     "task_id": task_id,
+        #     "optimal_params": optimal_params
+        # })
 
-    torch.save(pretrained_params, f"{args.exp_dir}/pretrained_params.pth")
-    json.dump(nesy.llm.param_info, open(f"{args.exp_dir}/params_info.json", "w"))
+        save_dir = f"./exp/sni-pretrain/pretrain/{task_id}"
+        mkdir(save_dir)
+        #torch.save(pretrained_params, f"{args.exp_dir}/pretrain/{task_id}/optimal_params.pth")
+        torch.save(pretrained_params, f"{save_dir}/optimal_params.pth")
+    
+    if args.fuse_method == "delta":
+        json.dump(nesy.llm.param_info, open(f"{args.exp_dir}/params_info.json", "w"))
 
 def valid_symbolic2neural(args, epoch, data_loader, nesy, prompt_template, evaluater, log, name):
     
@@ -152,66 +162,50 @@ def valid_neural2symbolic(args, epoch, train_data, test_data, nesy, prompt_templ
         randomn_latent = [torch.randn([1, nesy.args.latent_size]) for i in range(num_samples)]
         trained_latent = []
         
-                    
+        # with torch.no_grad():
+            
+        #     params = []
+            
+        #     for latent in encoded_latent:
+                
+        #         latent = latent.to(nesy.args.flow_device)
+                            
+        #         param = nesy.flow_forward(latent)
+                
+        #         param = param.to(nesy.args.task_device)
+                
+        #         params.append(param)
+            
+        #     for i, batch in tqdm(enumerate(subtask_train_data_loader)):
+
+        #         x_batch = batch["input"]
+        #         x_batch = [prompt_template.format(x) for x in x_batch]
+        #         y_batch = batch["target"]
+                
+        #         expanded_params = params[0].repeat_interleave(len(x_batch), dim=0)
+        #         test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
+        #         print(test_loss)
+
+        #         expanded_params = params[1].repeat_interleave(len(x_batch), dim=0)
+        #         test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
+        #         print(test_loss)
+                
+        #         expanded_params = ((params[0]+params[1])/2).repeat_interleave(len(x_batch), dim=0)
+        #         test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
+        #         print(test_loss)
+
+        #         expanded_params = ((params[3]+params[4]+params[2])/3).repeat_interleave(len(x_batch), dim=0)
+        #         test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
+        #         print(test_loss)
+    
+        #         expanded_params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16).repeat_interleave(len(x_batch), dim=0)
+        #         test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
+        #         print(test_loss)
+    
+
         for i in range(num_samples):
             
             params, test_loss_ls = train_subtask(nesy, subtask_train_data_loader, subtask_test_data_loader, prompt_template, subtask_test_data)
-
-            # train_loss = 0
-            # with torch.no_grad():
-            #     for batch in subtask_train_data_loader:
-            #         x_batch = batch["input"]
-            #         x_batch = [prompt_template.format(x) for x in x_batch]
-            #         y_batch = batch["target"]              
-            #         train_loss += nesy.compute_task_loss(params, x_batch, y_batch)
-            #     train_loss /= len(subtask_train_data)
-            # log.writelines(f"train_loss = {train_loss}\n")
-            # log.writelines(f"test_loss = {test_loss}\n")
-
-            # encoded_params = encoded_latent[i].to(nesy.args.task_device)
-            # encode_knowledge_train_loss = 0
-            # with torch.no_grad():
-            #     for batch in subtask_train_data_loader:
-            #         x_batch = batch["input"]
-            #         x_batch = [prompt_template.format(x) for x in x_batch]
-            #         y_batch = batch["target"]              
-            #         encode_knowledge_train_loss += nesy.compute_task_loss(encoded_params, x_batch, y_batch)
-            #     encode_knowledge_train_loss /= len(subtask_train_data)
-            # log.writelines(f"encode_knowledge_train_loss = {encode_knowledge_train_loss}\n")
-
-            # encode_knowledge_test_loss = 0
-            # with torch.no_grad():
-            #     for batch in subtask_test_data_loader:
-            #         x_batch = batch["input"]
-            #         x_batch = [prompt_template.format(x) for x in x_batch]
-            #         y_batch = batch["target"]              
-            #         encode_knowledge_test_loss += nesy.compute_task_loss(encoded_params, x_batch, y_batch)
-            #     encode_knowledge_test_loss /= len(subtask_test_data)
-
-            # log.writelines(f"encode_knowledge_test_loss = {encode_knowledge_test_loss}\n")
-
-            # for batch in subtask_test_data_loader:
-            #     with torch.no_grad():
-            #         knowledge_batch = batch["knowledge"]
-            #         x_batch = batch["input"]
-            #         x_batch = [prompt_template.format(x) for x in x_batch]
-            #         y_batch = batch["target"]
-            #         batch_size = len(knowledge_batch)
-            #         results = []
-            #         for i in range(batch_size):
-            #             new_task_parameters = nesy.llm.allocate(params[0])
-            #             x_id = nesy.llm.tokenizer(x_batch[i], return_tensors="pt").input_ids.to(nesy.args.task_device)
-            #             y_pred = nesy.llm.predict_task(x_id, new_task_parameters)
-            #             results.append({
-            #                 "knowledge": knowledge_batch[i],
-            #                 "x": x_batch[i],
-            #                 "y_true": y_batch[i],
-            #                 "y_pred": y_pred,
-            #                 "score": evaluater(y_pred, y_batch[i])
-            #                 })
-            #         for result in results:
-            #             num_correct_neural += result["score"]
-            #             num_test_neural += 1
                         
             trained_latent.append(params)
 
@@ -557,7 +551,7 @@ def main(args):
         
         for epoch in range(start_epoch, args.num_epochs):
 
-            if epoch % 20 == 0 and epoch > 0:
+            if epoch % 2 == 0 and epoch > 0:
 
                 nesy.save(f"{args.exp_dir}/epoch{epoch}/nesy_ckpt/")
 
@@ -614,13 +608,15 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="list_functions", help='name of dataset.')
+    parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
     parser.add_argument('--meta_exp_dir', type=str, default="./exp", help='name of dataset.')
     parser.add_argument('--exp_name', type=str, default="debug", help='name of dataset.')
     
     parser.add_argument('--method', type=str, default="nesy", help='name of dataset.')
     parser.add_argument('--prior', type=str, default="vaeflow", help='name of dataset.')
-    parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
+    # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
+    parser.add_argument('--fuse_method', type=str, default="p-tuning", help='name of dataset.')
+
     #parser.add_argument('--ebm_optim_method', type=str, default="drop-z", help='name of dataset.')
     parser.add_argument('--ebm_optim_method', type=str, default="nce", help='name of dataset.')
 
@@ -632,7 +628,7 @@ if __name__ == '__main__':
     parser.add_argument('--task_finetune_step', type=int, default=200, help='input batchsize.')
     parser.add_argument('--task_finetune_lr', type=float, default=1e-2, help='input batchsize.')
     parser.add_argument('--lr', type=float, default=1e-4, help='input batchsize.')
-    parser.add_argument('--beta', type=float, default=1, help='input batchsize.')
+    parser.add_argument('--beta', type=float, default=0.1, help='input batchsize.')
     parser.add_argument('--episilon', type=float, default=1e-5, help='input batchsize.')
     parser.add_argument('--num_epochs', type=int, default=100, help='input batchsize.')
     
@@ -647,7 +643,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_soft_token', type=int, default=5, help='max number of tokens to generate.')
     
     parser.add_argument('--load_exp', type=str, default=None, help='name of dataset.')
-    parser.add_argument('--load_epoch', type=int, default=18, help='input batchsize.')
+    parser.add_argument('--load_epoch', type=int, default=4, help='input batchsize.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether show results')
     parser.add_argument('--results_name', type=str, default=None, help='keywords must include in results')
     parser.add_argument('--model_name_or_path', type=str, default="/netcache/huggingface/llama-2-7b-chat-hf", help='Tasks for instructions generation')
@@ -656,10 +652,10 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_device', type=int, default=0, help='device to use')
     parser.add_argument('--decoder_device', type=int, default=0, help='device to use')
     parser.add_argument('--task_device', type=int, default=1, help='device to use')
-    parser.add_argument('--flow_device', type=int, default=1, help='device to use')
+    parser.add_argument('--flow_device', type=int, default=2, help='device to use')
     parser.add_argument('--backward_device', type=int, default=0, help='device to use')
     
-    parser.add_argument('--lora_r', type=int, default=8)
+    parser.add_argument('--lora_r', type=int, default=16)
     parser.add_argument('--lora_alpha', type=int, default=32)
     parser.add_argument('--target_modules', type=str, default="q_proj,k_proj,v_proj,o_proj,down_proj,gate_proj,up_proj", help='keywords must include in results')
         
