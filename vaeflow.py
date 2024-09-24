@@ -36,15 +36,26 @@ class Nesy(nn.Module):
 
             self.flow_net = INN.Sequential(
                     #INN.Linear(self.latent_size),
-                    INN.Nonlinear(1, method="RealNVP"),
+                    INN.Nonlinear(self.latent_size, method="RealNVP"),
                     #INN.Linear(self.latent_size),
                     #INN.Nonlinear(self.latent_size, method="RealNVP"),
                     #INN.Linear(self.latent_size)
                 ).to(self.args.flow_device)
             
-            #self.logZ = torch.nn.Parameter((torch.ones(len(args.task_id2knowledge))*args.latent_size*0.5*torch.log(torch.tensor(2 * torch.pi))*1.5).to(self.args.task_device))
-            self.logZ = torch.nn.Parameter((torch.ones(len(self.args.task_id2knowledge))*self.args.latent_size*-torch.log(torch.tensor(1.0 / (3 - (-3))))).to(self.args.task_device))
-            #self.logZ = torch.nn.Parameter((torch.ones(1)*args.latent_size*0.5*torch.log(torch.tensor(2 * torch.pi))*1.5).to(self.args.task_device))
+            if self.args.ebm_optim_method == "nce":
+            
+                self.logZ = torch.nn.Parameter((torch.ones(len(self.args.task_id2knowledge))*self.args.latent_size*-torch.log(torch.tensor(1.0 / (3 - (-3))))).to(self.args.task_device))
+                
+            elif self.args.ebm_optim_method == "flow-nce":
+                
+                self.logZ = torch.nn.Parameter((torch.ones(len(self.args.task_id2knowledge))*self.args.latent_size*-torch.log(torch.tensor(1.0 / (3 - (-3))))).to(self.args.task_device))
+                self.noise_flow_net = INN.Sequential(
+                        INN.Nonlinear(self.latent_size, method="RealNVP"),
+                    ).to(self.args.noise_device)
+                
+                log_prob_per_dim = torch.log(torch.tensor(1.0 / (3 - (-3))))  # log(1/6)
+                logq = self.args.latent_size * log_prob_per_dim
+                self.logq = logq.to(self.args.noise_device)
 
             # self.reference_trained_params = torch.nn.Parameter(torch.randn(size=[len(args.task_id2knowledge), self.args.latent_size], 
             #                                             requires_grad=True,
@@ -95,14 +106,32 @@ class Nesy(nn.Module):
         
         return text
     
-    def flow_forward(self, latent):
-        params = latent
-        #params = self.flow_net(latent.to(torch.float))[0].to(torch.bfloat16)
-        return params
+    def flow_forward(self, latent, return_all=False):
+        #params = latent
+        params, log_p, log_det_J = self.flow_net(latent.to(torch.float))
+        params = params.to(torch.bfloat16)
+        if return_all:
+            return params, log_p, log_det_J
+        else:
+            return params
+        
+    def noise_flow_forward(self, latent, return_all=False):
+        #params = latent
+        params, log_p, log_det_J = self.noise_flow_net(latent.to(torch.float))
+        params = params.to(torch.bfloat16)
+        if return_all:
+            return params, log_p, log_det_J
+        else:
+            return params
     
     def flow_backward(self, params):
-        latent = params
-        #latent = self.flow_net.inverse(params.to(torch.float)).to(torch.bfloat16)
+        #latent = params
+        latent = self.flow_net.inverse(params.to(torch.float)).to(torch.bfloat16)
+        return latent
+
+    def noise_flow_backward(self, params):
+        #latent = params
+        latent = self.noise_flow_net.inverse(params.to(torch.float)).to(torch.bfloat16)
         return latent
 
     def compute_kl_loss(self, mean, log_var):
@@ -246,6 +275,48 @@ class Nesy(nn.Module):
             logp_noise = -(self.args.beta*task_loss_noise + self.logZ[task_ids])
             PC1_post = torch.sigmoid(torch.log(k) - torch.log(n) + (logq - logp_noise))
 
+            flow_loss = -torch.log(torch.clamp(PC0_post, min=self.args.episilon)) -torch.log(torch.clamp(PC1_post, min=self.args.episilon))
+            flow_loss = torch.mean(flow_loss)
+            
+            task_loss = task_loss_data
+            
+        elif self.args.ebm_optim_method == "flow-nce":
+
+            sampled_latent = self.reparameterize(mean, log_var)
+
+            sampled_latent = sampled_latent.to(self.args.decoder_device)
+            knowledge_ids = knowledge_ids.to(self.args.decoder_device)
+            recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids)
+
+            sampled_latent = sampled_latent.to(self.args.flow_device)
+            params = self.flow_forward(sampled_latent)
+            data_params = params.to(self.args.task_device)
+            
+            #noise_params = sampled_latent.detach().to(self.args.task_device)
+
+            noise_latent = torch.empty(batch_size, self.args.latent_size, dtype=torch.bfloat16).uniform_(-3, 3).to(self.args.noise_device)
+            noise_params, _, log_det_J_noise = self.noise_flow_forward(noise_latent, return_all=True)
+            logq_noise = self.logq * torch.ones(batch_size).to(self.args.noise_device) + log_det_J_noise
+            
+            data_latent = self.noise_flow_backward(data_params.to(self.args.noise_device))
+            _, _, log_det_J_data = self.noise_flow_forward(data_latent, return_all=True)
+            logq_data = self.logq * torch.ones(batch_size).to(self.args.noise_device) + log_det_J_data
+
+            n = torch.tensor(params.shape[0])
+            k = torch.tensor(noise_params.shape[0])
+            logq_noise = logq_noise.to(self.args.task_device)
+            logq_data = logq_data.to(self.args.task_device)
+            noise_params = noise_params.to(self.args.task_device)
+
+            task_ids = [self.args.knowledge2task_id[knowledge] for knowledge in knowledge_batch]
+            
+            task_loss_data = self.compute_task_loss(data_params, x_batch, y_batch, reduce=False)
+            logp_data = -(self.args.beta*task_loss_data + self.logZ[task_ids])
+            PC0_post = torch.sigmoid(torch.log(n) - torch.log(k) + (logp_data - logq_data))
+
+            task_loss_noise = self.compute_task_loss(noise_params, x_batch, y_batch, reduce=False)
+            logp_noise = -(self.args.beta*task_loss_noise + self.logZ[task_ids])
+            PC1_post = torch.sigmoid(torch.log(k) - torch.log(n) + (logq_noise - logp_noise))
 
             flow_loss = -torch.log(torch.clamp(PC0_post, min=self.args.episilon)) -torch.log(torch.clamp(PC1_post, min=self.args.episilon))
             flow_loss = torch.mean(flow_loss)

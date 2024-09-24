@@ -1,7 +1,7 @@
 import os
 import time
 import shutil
-#os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8,9"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "0,6,7,8,9"
 import argparse
 import random
 import json
@@ -527,14 +527,15 @@ def main(args):
         pretrain_subtask(args, data["seen_tasks"]["train"], data["seen_tasks"]["test"], nesy, prompt_template, pretrain_log)
 
     elif args.method == "nesy":
-        optimizer = torch.optim.Adam([
-            {'params': nesy.llm.encoder.parameters(), 'lr': args.lr},
-            {'params': nesy.encoder_mlp.parameters(), 'lr': args.lr},
-            {'params': nesy.llm.decoder.parameters(), 'lr': args.lr},
-            {'params': nesy.decoder_mlp.parameters(), 'lr': args.lr},
-            {'params': nesy.flow_net.parameters(), 'lr': args.lr},
-            {'params': nesy.logZ, 'lr': args.lr}
-                                    ], lr=args.lr)
+        # optimizer = torch.optim.Adam([
+        #     {'params': nesy.llm.encoder.parameters(), 'lr': args.lr},
+        #     {'params': nesy.encoder_mlp.parameters(), 'lr': args.lr},
+        #     {'params': nesy.llm.decoder.parameters(), 'lr': args.lr},
+        #     {'params': nesy.decoder_mlp.parameters(), 'lr': args.lr},
+        #     {'params': nesy.flow_net.parameters(), 'lr': args.lr},
+        #     {'params': nesy.logZ, 'lr': args.lr}
+        #                             ], lr=args.lr)
+        optimizer = torch.optim.Adam(nesy.parameters(), lr=args.lr)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=10)
         train_log = open(f"{args.exp_dir}/train.log", "w")
         train_log.writelines(f"seen_tasks: {data['seen_task_num']}, unseen_tasks: {data['task_num'] - data['seen_task_num']}\n")
@@ -618,7 +619,7 @@ if __name__ == '__main__':
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='name of dataset.')
 
     #parser.add_argument('--ebm_optim_method', type=str, default="drop-z", help='name of dataset.')
-    parser.add_argument('--ebm_optim_method', type=str, default="nce", help='name of dataset.')
+    parser.add_argument('--ebm_optim_method', type=str, default="flow-nce", help='name of dataset.')
 
     parser.add_argument('--batch_size', type=int, default=2, help='input batchsize.')
     parser.add_argument('--latent_size', type=int, default=1000, help='input batchsize.')
@@ -640,7 +641,7 @@ if __name__ == '__main__':
     parser.add_argument('--flow_loss_weight', type=float, default=1, help='input batchsize.')
     
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
-    parser.add_argument('--num_soft_token', type=int, default=5, help='max number of tokens to generate.')
+    parser.add_argument('--num_soft_token', type=int, default=1, help='max number of tokens to generate.')
     
     parser.add_argument('--load_exp', type=str, default=None, help='name of dataset.')
     parser.add_argument('--load_epoch', type=int, default=4, help='input batchsize.')
@@ -653,6 +654,7 @@ if __name__ == '__main__':
     parser.add_argument('--decoder_device', type=int, default=0, help='device to use')
     parser.add_argument('--task_device', type=int, default=1, help='device to use')
     parser.add_argument('--flow_device', type=int, default=2, help='device to use')
+    parser.add_argument('--noise_device', type=int, default=3, help='device to use')
     parser.add_argument('--backward_device', type=int, default=0, help='device to use')
     
     parser.add_argument('--lora_r', type=int, default=16)
