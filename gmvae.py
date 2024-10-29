@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.distributions import Normal
 from llm import WrappedLLM
 from utils import mkdir
+from src.gm_entropy.entropy_bounds import EntropyLowerBoundEstLogScale
 
 class Nesy(nn.Module):
     
@@ -97,23 +98,51 @@ class Nesy(nn.Module):
         
         return kl_loss
 
-    def compute_task_loss(self, latent, x_batch, y_batch):
+    def compute_task_loss(self, latent, x_batch, y_batch, reduce=True):
         
-        batch_size = latent.shape[0]
-        task_loss = 0
+        batch_size = len(x_batch)
+        
+        if self.args.fuse_method == "delta":
+
+            if reduce:
+                task_loss = 0
+            else:
+                task_loss = []
+         
+            for i in range(batch_size):
                 
-        for i in range(batch_size):
+                new_task_parameters = self.llm.allocate(latent[i])
+                
+                x_id = self.llm.tokenizer(x_batch[i], return_tensors="pt", add_special_tokens=True).input_ids.to(self.args.task_device)
+                y_id = self.llm.tokenizer(y_batch[i], return_tensors="pt", add_special_tokens=True).input_ids.to(self.args.task_device)
+
+                if reduce:
+                    task_loss += self.llm.solve_task(x_id, y_id, new_task_parameters)
+                else:
+                    task_loss.append(self.llm.solve_task(x_id, y_id, new_task_parameters))
+
+            if reduce:
+                task_loss /= batch_size
+            else:
+                task_loss = torch.stack(task_loss, dim=0)
             
-            new_task_parameters = self.llm.allocate(latent[i])
+        elif self.args.fuse_method == "p-tuning":
+
+            x_id = self.llm.tokenizer(x_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
+            y_id = self.llm.tokenizer(y_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
             
-            x_id = self.llm.tokenizer(x_batch[i], return_tensors="pt").input_ids.to(self.args.task_device)
-            y_id = self.llm.tokenizer(y_batch[i], return_tensors="pt").input_ids.to(self.args.task_device)
+            if self.args.ebm_optim_method == "mc":
+                x_id = x_id.repeat_interleave(self.args.num_latent_samples, dim=0)
+                y_id = y_id.repeat_interleave(self.args.num_latent_samples, dim=0)
+                latent = latent.reshape(batch_size*self.args.num_latent_samples, self.args.latent_size)
+            else:
+                latent = latent.reshape(batch_size, self.args.latent_size)
+            
+            task_loss = self.llm.solve_task(x_id, y_id, latent, reduce=reduce)
+            
+        return task_loss
 
-            task_loss += self.llm.solve_task(x_id, y_id, new_task_parameters)
-
-        return task_loss #/ batch_size
-
-    def estimate_entropy(self, mean, log_var, log_prior, method="MC"):
+    def estimate_entropy(self, mean, log_var, log_prior, method="ieee2008"):
         
         entropy = 0
         
@@ -135,6 +164,16 @@ class Nesy(nn.Module):
                 
             # dist_entropy /= self.args.num_peak
             entropy = prior_entropy #+ dist_entropy
+            
+        elif method == "ieee2008":
+            batch_size = mean.shape[0]
+            weights = torch.exp(log_prior).to(torch.float32)
+            covariances = torch.exp(log_var).permute(0, 2, 1).to(torch.float32)
+            means = mean.permute(0, 2, 1).to(torch.float32)
+            for i in range(batch_size):
+                gmm_params = (weights[i], means[i], covariances[i])
+                entropy += EntropyLowerBoundEstLogScale(gmm_params)
+            entropy /= batch_size
             
         return entropy
 
@@ -183,20 +222,20 @@ class Nesy(nn.Module):
         alignment_loss = 0
         entropy_loss = 0
 
-        for i in range(batch_size):
-            knowledge_ids = self.llm.tokenizer(knowledge_batch[i], return_tensors="pt").input_ids.to(self.args.encoder_device)
-            mean, log_var, log_prior = self.encode(knowledge_ids)
-            kl_loss += self.compute_kl_loss(mean, log_var, log_prior)
-            entropy_loss += -self.estimate_entropy(mean, log_var, log_prior, method="MC")
+        batch_size = len(knowledge_batch)
 
-            sampled_latent = self.reparameterize(mean, log_var, log_prior)
+        knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
+        mean, log_var, log_prior = self.encode(knowledge_ids)
+        kl_loss = self.compute_kl_loss(mean, log_var, log_prior)
 
-            sampled_latent = sampled_latent.to(self.args.decoder_device)
-            knowledge_ids = knowledge_ids.to(self.args.decoder_device)
-            recon_loss += self.compute_recon_loss(sampled_latent, knowledge_ids)
-            
-            sampled_latent = sampled_latent.to(self.args.task_device)
-            task_loss += self.compute_task_loss(sampled_latent, [x_batch[i]], [y_batch[i]])
+        sampled_latent = self.reparameterize(mean, log_var, log_prior)
+
+        sampled_latent = sampled_latent.to(self.args.decoder_device)
+        knowledge_ids = knowledge_ids.to(self.args.decoder_device)
+        recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids)
+        
+        sampled_latent = sampled_latent.to(self.args.task_device)
+        task_loss += self.compute_task_loss(sampled_latent, x_batch, y_batch)
 
         kl_loss = kl_loss.to(self.args.backward_device)
         recon_loss = recon_loss.to(self.args.backward_device)
@@ -214,10 +253,10 @@ class Nesy(nn.Module):
         
         batch_size = len(knowledge_batch)
 
-        knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest", truncation=True).input_ids.to(self.args.encoder_device)
+        knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
         mean, log_var, log_prior = self.encode(knowledge_ids)
         kl_loss = self.compute_kl_loss(mean, log_var, log_prior)
-        entropy_loss = -self.estimate_entropy(mean, log_var, log_prior, method="prior-dist")
+        entropy_loss = -self.estimate_entropy(mean, log_var, log_prior, method="ieee2008")
 
         sampled_latent = self.reparameterize(mean, log_var, log_prior)
 
@@ -226,7 +265,7 @@ class Nesy(nn.Module):
         recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids)
 
         sampled_latent = sampled_latent.to(self.args.task_device)
-        task_loss = self.compute_task_loss(sampled_latent, x_batch, y_batch) / batch_size
+        task_loss = self.compute_task_loss(sampled_latent, x_batch, y_batch) #/ batch_size
 
         kl_loss = kl_loss.to(self.args.backward_device)
         recon_loss = recon_loss.to(self.args.backward_device)
@@ -238,33 +277,54 @@ class Nesy(nn.Module):
     def eval_task(self, knowledge_batch, x_batch, y_batch, evaluater):
         
         batch_size = len(knowledge_batch)
-        knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest", truncation=True).input_ids.to(self.args.encoder_device)
-        mean, log_var, log_prior = self.encode(knowledge_ids)
         
-        results = []
-        
-        for i in range(batch_size):
+        if self.args.fuse_method == "delta":
             
-            means = mean[i]
-            priors = torch.exp(log_prior[i])
-            cat = torch.multinomial(priors, num_samples=1, replacement=True)
+            results = []
             
-            latent = means[:, cat[0]].to(self.args.task_device)
-            
-            new_task_parameters = self.llm.allocate(latent)
-            
-            x_id = self.llm.tokenizer(x_batch[i], return_tensors="pt").input_ids.to(self.args.task_device)
-            
-            y_pred = self.llm.predict_task(x_id, new_task_parameters)
+            for i in range(batch_size):
 
-            results.append({
-                "knowledge": knowledge_batch[i],
-                "x": x_batch[i],
-                "y_true": y_batch[i],
-                "y_pred": y_pred,
-                "score": evaluater(y_pred, y_batch[i])
-                })
+                knowledge_ids = self.llm.tokenizer(knowledge_batch[i], add_special_tokens=True, return_tensors="pt").input_ids.to(self.args.encoder_device)#(self.args.device)
+                mean, log_var, log_prior = self.encode(knowledge_ids)
 
+                latent = mean[0].to(self.args.flow_device)
+                
+                params = self.flow_forward(latent).to(self.args.task_device)
+                
+                new_task_parameters = self.llm.allocate(params)
+                
+                x_id = self.llm.tokenizer(x_batch[i], return_tensors="pt", add_special_tokens=True).input_ids.to(self.args.task_device)
+                
+                y_pred = self.llm.predict_task(x_id, new_task_parameters)
+
+                results.append({
+                    "knowledge": knowledge_batch[i],
+                    "x": x_batch[i],
+                    "y_true": y_batch[i],
+                    "y_pred": y_pred,
+                    "score": evaluater(y_pred, y_batch[i])
+                    })
+
+        elif self.args.fuse_method == "p-tuning":
+            
+            knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
+            mean, log_var, log_prior = self.encode(knowledge_ids)
+            
+            params = self.reparameterize(mean, log_var, log_prior).to(self.args.task_device)
+            
+            x_id = self.llm.tokenizer(x_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
+            y_pred = self.llm.predict_task(x_id, params)
+            
+            results = [
+                {
+                    "knowledge": knowledge_batch[i],
+                    "x": x_batch[i],
+                    "y_true": y_batch[i],
+                    "y_pred": y_pred[i],
+                    "score": evaluater(y_pred[i], y_batch[i])
+                }
+                for i in range(batch_size)
+            ]
         return results
     
     def eval_knowledge(self, knowledge, predicted_knowledge, evaluater):

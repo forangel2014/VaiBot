@@ -37,12 +37,12 @@ class Nesy(nn.Module):
             # 匈牙利匹配，SINKHORN algorithm
             # sampled latent [sample_num, hidden_dim]
             # reference latent [group, hidden_dim]
-            self.reference_trained_params = torch.nn.Parameter(torch.randn(size=[len(args.task_id2knowledge), self.args.latent_size], 
-                                                        requires_grad=True,
-                                                        device=self.args.task_device, 
-                                                        dtype=torch.bfloat16))
+            # self.reference_trained_params = torch.nn.Parameter(torch.randn(size=[len(args.task_id2knowledge), self.args.latent_size], 
+            #                                             requires_grad=True,
+            #                                             device=self.args.task_device, 
+            #                                             dtype=torch.bfloat16))
             
-            self.reference_optimizer = torch.optim.Adam([self.reference_trained_params], lr=args.task_finetune_lr)
+            # self.reference_optimizer = torch.optim.Adam([self.reference_trained_params], lr=args.task_finetune_lr)
 
             if args.load_nesy_ckpt:
                 self.load(args.load_nesy_ckpt)
@@ -91,22 +91,50 @@ class Nesy(nn.Module):
         )
         return kl_loss.mean()
 
-    def compute_task_loss(self, latent, x_batch, y_batch):
+    def compute_task_loss(self, latent, x_batch, y_batch, reduce=True):
         
-        batch_size = latent.shape[0]
-        task_loss = 0
+        batch_size = len(x_batch)
+        
+        if self.args.fuse_method == "delta":
+
+            if reduce:
+                task_loss = 0
+            else:
+                task_loss = []
+         
+            for i in range(batch_size):
                 
-        for i in range(batch_size):
+                new_task_parameters = self.llm.allocate(latent[i])
+                
+                x_id = self.llm.tokenizer(x_batch[i], return_tensors="pt", add_special_tokens=True).input_ids.to(self.args.task_device)
+                y_id = self.llm.tokenizer(y_batch[i], return_tensors="pt", add_special_tokens=True).input_ids.to(self.args.task_device)
+
+                if reduce:
+                    task_loss += self.llm.solve_task(x_id, y_id, new_task_parameters)
+                else:
+                    task_loss.append(self.llm.solve_task(x_id, y_id, new_task_parameters))
+
+            if reduce:
+                task_loss /= batch_size
+            else:
+                task_loss = torch.stack(task_loss, dim=0)
             
-            new_task_parameters = self.llm.allocate(latent[i])
+        elif self.args.fuse_method == "p-tuning":
+
+            x_id = self.llm.tokenizer(x_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
+            y_id = self.llm.tokenizer(y_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
             
-            x_id = self.llm.tokenizer(x_batch[i], return_tensors="pt").input_ids.to(self.args.task_device)
-            y_id = self.llm.tokenizer(y_batch[i], return_tensors="pt").input_ids.to(self.args.task_device)
-
-            task_loss += self.llm.solve_task(x_id, y_id, new_task_parameters)
-
-        return task_loss #/ batch_size
-
+            if self.args.ebm_optim_method == "mc":
+                x_id = x_id.repeat_interleave(self.args.num_latent_samples, dim=0)
+                y_id = y_id.repeat_interleave(self.args.num_latent_samples, dim=0)
+                latent = latent.reshape(batch_size*self.args.num_latent_samples, self.args.latent_size)
+            else:
+                latent = latent.reshape(batch_size, self.args.latent_size)
+            
+            task_loss = self.llm.solve_task(x_id, y_id, latent, reduce=reduce)
+            
+        return task_loss
+    
     def reparameterize(self, mean, log_var):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
@@ -164,14 +192,14 @@ class Nesy(nn.Module):
         
         batch_size = len(knowledge_batch)
 
-        self.reference_optimizer.zero_grad()
-        task_ids = [self.args.knowledge2task_id[k] for k in knowledge_batch]
-        reference_params = self.reference_trained_params[task_ids]
-        reference_task_loss = self.compute_task_loss(reference_params, x_batch, y_batch) / batch_size
-        reference_task_loss.backward()
-        self.reference_optimizer.step()
+        # self.reference_optimizer.zero_grad()
+        # task_ids = [self.args.knowledge2task_id[k] for k in knowledge_batch]
+        # reference_params = self.reference_trained_params[task_ids]
+        # reference_task_loss = self.compute_task_loss(reference_params, x_batch, y_batch) / batch_size
+        # reference_task_loss.backward()
+        # self.reference_optimizer.step()
 
-        knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest", truncation=True).input_ids.to(self.args.encoder_device)
+        knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
         mean, log_var = self.encode(knowledge_ids)
         kl_loss = self.compute_kl_loss(mean, log_var)
 
@@ -182,44 +210,66 @@ class Nesy(nn.Module):
         recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids)
 
         sampled_latent = sampled_latent.to(self.args.task_device)
-        task_loss = self.compute_task_loss(sampled_latent, x_batch, y_batch) / batch_size
+        task_loss = self.compute_task_loss(sampled_latent, x_batch, y_batch)
 
-        alignment_loss = torch.mean(torch.norm(sampled_latent - reference_params.detach().to(self.args.task_device), dim=1)) #/ self.args.num_latent_samples
+        #alignment_loss = torch.mean(torch.norm(sampled_latent - reference_params.detach().to(self.args.task_device), dim=1)) #/ self.args.num_latent_samples
 
         kl_loss = kl_loss.to(self.args.backward_device)
         recon_loss = recon_loss.to(self.args.backward_device)
         task_loss = task_loss.to(self.args.backward_device)
-        alignment_loss = alignment_loss.to(self.args.backward_device)
+        #alignment_loss = alignment_loss.to(self.args.backward_device)
 
-        return kl_loss, recon_loss, task_loss, alignment_loss, reference_task_loss
+        return kl_loss, recon_loss, task_loss#, alignment_loss, reference_task_loss
 
     def eval_task(self, knowledge_batch, x_batch, y_batch, evaluater):
         
         batch_size = len(knowledge_batch)
         
-        results = []
-        
-        for i in range(batch_size):
+        if self.args.fuse_method == "delta":
+            
+            results = []
+            
+            for i in range(batch_size):
 
-            knowledge_ids = self.llm.tokenizer(knowledge_batch[i], add_special_tokens=True, return_tensors="pt").input_ids.to(self.args.encoder_device)#(self.args.device)
+                knowledge_ids = self.llm.tokenizer(knowledge_batch[i], add_special_tokens=True, return_tensors="pt").input_ids.to(self.args.encoder_device)#(self.args.device)
+                mean, log_var = self.encode(knowledge_ids)
+
+                latent = mean[0].to(self.args.flow_device)
+                
+                new_task_parameters = self.llm.allocate(latent)
+                
+                x_id = self.llm.tokenizer(x_batch[i], return_tensors="pt", add_special_tokens=True).input_ids.to(self.args.task_device)
+                
+                y_pred = self.llm.predict_task(x_id, new_task_parameters)
+
+                results.append({
+                    "knowledge": knowledge_batch[i],
+                    "x": x_batch[i],
+                    "y_true": y_batch[i],
+                    "y_pred": y_pred,
+                    "score": evaluater(y_pred, y_batch[i])
+                    })
+
+        elif self.args.fuse_method == "p-tuning":
+            
+            knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
             mean, log_var = self.encode(knowledge_ids)
-
-            latent = mean[0].to(self.args.task_device)
             
-            new_task_parameters = self.llm.allocate(latent)
+            params = self.reparameterize(mean, log_var).to(self.args.task_device)
             
-            x_id = self.llm.tokenizer(x_batch[i], return_tensors="pt").input_ids.to(self.args.task_device)
+            x_id = self.llm.tokenizer(x_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
+            y_pred = self.llm.predict_task(x_id, params)
             
-            y_pred = self.llm.predict_task(x_id, new_task_parameters)
-
-            results.append({
-                "knowledge": knowledge_batch[i],
-                "x": x_batch[i],
-                "y_true": y_batch[i],
-                "y_pred": y_pred,
-                "score": evaluater(y_pred, y_batch[i])
-                })
-
+            results = [
+                {
+                    "knowledge": knowledge_batch[i],
+                    "x": x_batch[i],
+                    "y_true": y_batch[i],
+                    "y_pred": y_pred[i],
+                    "score": evaluater(y_pred[i], y_batch[i])
+                }
+                for i in range(batch_size)
+            ]
         return results
     
     def eval_knowledge(self, knowledge, predicted_knowledge, evaluater):

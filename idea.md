@@ -54,3 +54,5 @@
         -进行一步params梯度更新，得到假想的更优params
         -对假想的更优params backward
         -计算对数似然，优化
+        -流模型正确的训练方法：从param space中，根据EBM建模的分布采样（MCMC?），然后backward到latent space中，计算最大似然
+        -pretrain abc

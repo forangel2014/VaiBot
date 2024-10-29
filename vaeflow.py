@@ -45,8 +45,11 @@ class Nesy(nn.Module):
             if self.args.ebm_optim_method == "nce":
             
                 self.logZ = torch.nn.Parameter((torch.ones(len(self.args.task_id2knowledge))*self.args.latent_size*-torch.log(torch.tensor(1.0 / (3 - (-3))))).to(self.args.task_device))
+                log_prob_per_dim = torch.log(torch.tensor(1.0 / (3 - (-3))))  # log(1/6)
+                logq = self.args.latent_size * log_prob_per_dim
+                self.logq = logq.to(self.args.flow_device)
                 
-            elif self.args.ebm_optim_method == "flow-nce":
+            elif self.args.ebm_optim_method == "fce":
                 
                 self.logZ = torch.nn.Parameter((torch.ones(len(self.args.task_id2knowledge))*self.args.latent_size*-torch.log(torch.tensor(1.0 / (3 - (-3))))).to(self.args.task_device))
                 self.noise_flow_net = INN.Sequential(
@@ -164,7 +167,9 @@ class Nesy(nn.Module):
                 else:
                     task_loss.append(self.llm.solve_task(x_id, y_id, new_task_parameters))
             
-            if not reduce:
+            if reduce:
+                task_loss /= batch_size
+            else:
                 task_loss = torch.stack(task_loss, dim=0)
             
         elif self.args.fuse_method == "p-tuning":
@@ -226,7 +231,54 @@ class Nesy(nn.Module):
         # reference_task_loss.backward()
         # self.reference_optimizer.step()
 
-        if self.args.ebm_optim_method == "drop-z":
+        if self.args.ebm_optim_method == "kl":
+
+            sampled_latent, logz = self.reparameterize(mean, log_var, return_log_prob=True)
+
+            sampled_latent = sampled_latent.to(self.args.decoder_device)
+            knowledge_ids = knowledge_ids.to(self.args.decoder_device)
+            recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids)
+
+            sampled_latent = sampled_latent.to(self.args.flow_device)
+
+            params = self.flow_forward(sampled_latent, return_all=False)
+
+            params = params.to(self.args.task_device)
+            task_loss = self.compute_task_loss(params, x_batch, y_batch) #/ batch_size
+
+
+            entropy_forward_latent = sampled_latent.detach()
+            logz = logz.detach()
+
+            _, _, log_det_J = self.flow_forward(entropy_forward_latent, return_all=True)
+
+            logz = logz.to(self.args.flow_device)
+            entropy = torch.mean(- (logz - log_det_J))
+            entropy = entropy.to(self.args.backward_device)
+
+            flow_loss = task_loss
+
+        elif self.args.ebm_optim_method == "entropy":
+
+            sampled_latent, logz = self.reparameterize(mean, log_var, return_log_prob=True)
+
+            sampled_latent = sampled_latent.to(self.args.decoder_device)
+            knowledge_ids = knowledge_ids.to(self.args.decoder_device)
+            recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids)
+
+            sampled_latent = sampled_latent.to(self.args.flow_device)
+
+            params, _, log_det_J = self.flow_forward(sampled_latent, return_all=True)
+            logz = logz.to(self.args.flow_device)
+            entropy = torch.mean(- (logz - log_det_J))
+            entropy = entropy.to(self.args.backward_device)
+
+            params = params.to(self.args.task_device)
+            task_loss = self.compute_task_loss(params, x_batch, y_batch) / batch_size
+
+            flow_loss = task_loss
+
+        elif self.args.ebm_optim_method == "drop-z":
 
             sampled_latent = self.reparameterize(mean, log_var)
 
@@ -235,12 +287,12 @@ class Nesy(nn.Module):
             recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids)
 
             sampled_latent = sampled_latent.to(self.args.flow_device)
-                        
+
             params = self.flow_forward(sampled_latent)
-            
+
             params = params.to(self.args.task_device)
-            task_loss = self.compute_task_loss(params, x_batch, y_batch) / batch_size
-            
+            task_loss = self.compute_task_loss(params, x_batch, y_batch, reduce=True)
+
             flow_loss = task_loss
 
         elif self.args.ebm_optim_method == "nce":
@@ -253,34 +305,37 @@ class Nesy(nn.Module):
 
             sampled_latent = sampled_latent.to(self.args.flow_device)
             params = self.flow_forward(sampled_latent)
-            params = params.to(self.args.task_device)
-            
+            data_params = params.to(self.args.task_device)
+            logq_data = self.logq.to(self.args.task_device) #* torch.all(torch.abs(data_params) <= 3, dim=1)
+
             #noise_params = sampled_latent.detach().to(self.args.task_device)
+            #noise_params = torch.empty(batch_size, self.args.latent_size, dtype=torch.bfloat16).uniform_(-3, 3).to(self.args.task_device)
 
-            noise_params = torch.empty(batch_size, self.args.latent_size, dtype=torch.bfloat16).uniform_(-3, 3).to(self.args.task_device)
-            log_prob_per_dim = torch.log(torch.tensor(1.0 / (3 - (-3))))  # log(1/6)
-            logq = self.args.latent_size * log_prob_per_dim * torch.ones(batch_size)
-            logq = logq.to(self.args.task_device)
+            noise_latent = torch.empty(batch_size, self.args.latent_size, dtype=torch.bfloat16).uniform_(-3, 3).to(self.args.flow_device)
+            noise_params = self.flow_forward(noise_latent, return_all=False)
+            noise_params = noise_params.to(self.args.task_device)
+            logq_noise = self.logq.to(self.args.task_device) * torch.ones(batch_size).to(self.args.task_device)
 
-            n = torch.tensor(params.shape[0])
+            n = torch.tensor(data_params.shape[0])
             k = torch.tensor(noise_params.shape[0])
 
             task_ids = [self.args.knowledge2task_id[knowledge] for knowledge in knowledge_batch]
-            
-            task_loss_data = self.compute_task_loss(params, x_batch, y_batch, reduce=False)
+
+            task_loss_data = self.compute_task_loss(data_params, x_batch, y_batch, reduce=False)
             logp_data = -(self.args.beta*task_loss_data + self.logZ[task_ids])
-            PC0_post = torch.sigmoid(torch.log(n) - torch.log(k) + (logp_data - logq))
+            PC0_post = torch.sigmoid(torch.log(n) - torch.log(k) + (logp_data - logq_data))
 
             task_loss_noise = self.compute_task_loss(noise_params, x_batch, y_batch, reduce=False)
             logp_noise = -(self.args.beta*task_loss_noise + self.logZ[task_ids])
-            PC1_post = torch.sigmoid(torch.log(k) - torch.log(n) + (logq - logp_noise))
+            PC1_post = torch.sigmoid(torch.log(k) - torch.log(n) + (logq_noise - logp_noise))
 
-            flow_loss = -torch.log(torch.clamp(PC0_post, min=self.args.episilon)) -torch.log(torch.clamp(PC1_post, min=self.args.episilon))
+            #flow_loss = -torch.log(torch.clamp(PC0_post, min=self.args.episilon)) -torch.log(torch.clamp(PC1_post, min=self.args.episilon))
+            flow_loss = -torch.log(PC0_post) -torch.log(PC1_post) + task_loss_data
             flow_loss = torch.mean(flow_loss)
             
             task_loss = task_loss_data
             
-        elif self.args.ebm_optim_method == "flow-nce":
+        elif self.args.ebm_optim_method == "fce":
 
             sampled_latent = self.reparameterize(mean, log_var)
 
@@ -296,11 +351,11 @@ class Nesy(nn.Module):
 
             noise_latent = torch.empty(batch_size, self.args.latent_size, dtype=torch.bfloat16).uniform_(-3, 3).to(self.args.noise_device)
             noise_params, _, log_det_J_noise = self.noise_flow_forward(noise_latent, return_all=True)
-            logq_noise = self.logq * torch.ones(batch_size).to(self.args.noise_device) + log_det_J_noise
+            logq_noise = self.logq * torch.ones(batch_size).to(self.args.noise_device) - log_det_J_noise
             
             data_latent = self.noise_flow_backward(data_params.to(self.args.noise_device))
             _, _, log_det_J_data = self.noise_flow_forward(data_latent, return_all=True)
-            logq_data = self.logq * torch.ones(batch_size).to(self.args.noise_device) + log_det_J_data
+            logq_data = self.logq * torch.ones(batch_size).to(self.args.noise_device) - log_det_J_data
 
             n = torch.tensor(params.shape[0])
             k = torch.tensor(noise_params.shape[0])
@@ -320,9 +375,15 @@ class Nesy(nn.Module):
 
             flow_loss = -torch.log(torch.clamp(PC0_post, min=self.args.episilon)) -torch.log(torch.clamp(PC1_post, min=self.args.episilon))
             flow_loss = torch.mean(flow_loss)
+
+            #noise_loss = -torch.log(torch.clamp(1-PC0_post, min=self.args.episilon)) -torch.log(torch.clamp(1-PC1_post, min=self.args.episilon))
+            noise_loss = -flow_loss
+            noise_loss = torch.mean(noise_loss)
+
+            acc = (torch.sum(PC0_post > 0.5) + torch.sum(PC1_post > 0.5)) / (n+k)
             
             task_loss = task_loss_data
-
+                    
         elif self.args.ebm_optim_method == "mc":
 
             sampled_latent = self.reparameterize_group(mean, log_var, num_samples=self.args.num_latent_samples)
@@ -358,7 +419,13 @@ class Nesy(nn.Module):
         recon_loss = recon_loss.to(self.args.backward_device)
         task_loss = task_loss.to(self.args.backward_device)
         flow_loss = flow_loss.to(self.args.backward_device)
-        return kl_loss, recon_loss, task_loss, flow_loss
+        
+        if self.args.ebm_optim_method == "fce":
+            return kl_loss, recon_loss, task_loss, flow_loss, noise_loss, acc
+        elif self.args.ebm_optim_method in ["entropy", "kl"]:
+            return kl_loss, recon_loss, task_loss, flow_loss, entropy
+        else:
+            return kl_loss, recon_loss, task_loss, flow_loss
     
     def eval_task(self, knowledge_batch, x_batch, y_batch, evaluater):
         

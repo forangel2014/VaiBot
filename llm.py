@@ -36,9 +36,11 @@ class WrappedLLM(nn.Module):
         for params in self.task_model.parameters():
             params.requires_grad = False
 
-        #self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_eos_token=True)
-        #self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
+        if "llama" in args.model_name_or_path.lower():
+            self.tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
+        
         self.tokenizer.padding_side = "left"
         self.tokenizer.pad_token_id = 0
 

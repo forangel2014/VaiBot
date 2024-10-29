@@ -2,11 +2,13 @@ import copy
 import openai
 import os
 import torch
+import datasets
 import re
 import json
 import numpy as np
 import subprocess
 from sklearn.manifold import TSNE
+from tqdm import tqdm
 import random
 import matplotlib.pyplot as plt
 import string
@@ -50,9 +52,13 @@ def get_gpu_memory_usage():
     lines = output.strip().split('\n')
     
     # 格式化输出
+    info = ""
+
     for i, line in enumerate(lines):
         used, total = line.split(',')
-        print(f"GPU {i}: {used} MiB / {total} MiB")
+        info += f"GPU {i}: {used} MiB / {total} MiB\n"
+
+    return info
 
 def plot_loss_curve(loss_dict, name):
     # 创建一个新的图形
@@ -117,7 +123,7 @@ def tsne(encoded_latent, trained_latent, randomn_latent, filename):
     plt.savefig(filename)
 
 def create_task_data_lookup(data):
-    
+
     seen_train_knowledge_base = []
     
     for train_sample in data["seen_tasks"]["train"]:
@@ -125,9 +131,9 @@ def create_task_data_lookup(data):
         seen_train_knowledge_base.append(train_sample["knowledge"])
         
     knowledge = list(set(seen_train_knowledge_base))
-        
+
     lookup = dict(zip(knowledge, list(range(len(knowledge)))))
-    
+
     return knowledge, lookup
 
 def load_task_data(task, unseen_task_ratio=None, unseen_task_num=None, test_sample_ratio=None, test_sample_num=None,
@@ -385,6 +391,10 @@ transformation B: {knowledge_pred}
                 all_data["neural_evaluater"] = neural_evaluater
                 all_data["symbolic_evaluater"] = symbolic_evaluater
 
+    else:
+        raise Exception("Unknown dataset")
+
+
     all_data["seen_task_num"] = seen_task_num
     all_data["task_num"] = task_num
     print(f"seen_tasks: {seen_task_num}, unseen_tasks: {task_num - seen_task_num}")
@@ -392,6 +402,343 @@ transformation B: {knowledge_pred}
     print(all_data['seen_tasks']['train'][0])
     # import pdb; pdb.set_trace()
     return all_data
+
+def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True, save=False):
+
+    all_samples = []
+
+    path = "MBZUAI/LaMini-instruction"
+    if load_from_local:
+        dataset_samples = json.load(open("./data/pretrain/LaMini-instruction.json"))
+    else:
+        dataset = datasets.load_dataset(path)
+        dataset_samples = []
+        for sample in tqdm(dataset["train"]):
+            split_pos = sample["instruction"].find(":")
+            if split_pos == -1:
+                continue
+            knowledge, input_ = sample["instruction"][:split_pos], sample["instruction"][split_pos+1:]
+            if len(input_) < 3:
+                continue
+            my_sample = {
+                "knowledge": knowledge,
+                "input": input_,
+                "target": sample["response"],
+            }
+            dataset_samples.append(my_sample)
+        print(f"有效样本数量 (LaMini-instruction): {len(dataset_samples)}")  
+    all_samples.extend(dataset_samples)
+    if save:
+        json.dump(dataset_samples, open("./data/pretrain/LaMini-instruction.json", "w"))
+
+    # path = "bigscience/xP3"
+    # if load_from_local:
+    #     dataset = datasets.load_from_disk("./data/pretrain/xP3")
+    # else:
+    #     dataset = datasets.load_dataset(path, "en")
+    # dataset_samples = []
+    # for sample in tqdm(dataset["train"]):
+    #     print(sample)
+    #     my_sample = {
+    #         "knowledge": sample["instruction"],
+    #         "input": sample["input"],
+    #         "target": sample["output"],
+    #     }
+    #     dataset_samples.append(my_sample)
+    # print(f"有效样本数量 (xP3): {len(dataset_samples)}")  
+    # all_samples.extend(dataset_samples)
+    # if save:
+    #     dataset.save_to_disk("./data/pretrain/xP3")
+
+    # path = "BelleGroup/train_0.5M_CN"
+    # if load_from_local:
+    #     dataset_samples = json.load(open("./data/pretrain/train_0.5M_CN.json"))
+    # else:
+    #     dataset = datasets.load_dataset(path)
+    #     dataset_samples = []
+    #     for sample in tqdm(dataset["train"]):
+    #         split_pos = sample["instruction"].find("。")
+    #         if split_pos == -1:
+    #             continue
+    #         knowledge, input_ = sample["instruction"][:split_pos+1], sample["instruction"][split_pos+1:]
+    #         if len(input_) < 3:
+    #             continue
+    #         my_sample = {
+    #             "knowledge": knowledge,
+    #             "input": input_,
+    #             "target": sample["output"],
+    #         }
+    #         dataset_samples.append(my_sample)        
+    #     print(f"有效样本数量 (BelleGroup): {len(dataset_samples)}")  
+    # all_samples.extend(dataset_samples)
+    # if save:
+    #     json.dump(dataset_samples, open("./data/pretrain/train_0.5M_CN.json", "w"))
+
+    print("loading: alpaca")
+    path = "tatsu-lab/alpaca"
+    if load_from_local:
+        dataset_samples = json.load(open("./data/pretrain/alpaca.json"))
+    else:
+        dataset = datasets.load_dataset(path)
+        dataset_samples = []
+        for sample in tqdm(dataset["train"]):
+            if sample["input"] == "":
+                continue
+            my_sample = {
+                "knowledge": sample["instruction"],
+                "input": sample["input"],
+                "target": sample["output"],
+            }
+            dataset_samples.append(my_sample)
+        print(f"有效样本数量 (alpaca): {len(dataset_samples)}")  
+    all_samples.extend(dataset_samples)
+    if save:
+        json.dump(dataset_samples, open("./data/pretrain/alpaca.json", "w"))
+
+    # print("loading: orca")
+    # path = "Open-Orca/OpenOrca"
+    # if load_from_local:
+    #     dataset = datasets.load_from_disk("./data/pretrain/orca")
+    # else:
+    #     dataset = datasets.load_dataset(path)
+    # dataset_samples = []
+    # for sample in tqdm(dataset["train"]):
+    #     split_pos = sample["prompt"].find("\n", len(sample["prompt"]) // 3 * 2)
+    #     if split_pos == -1:
+    #         split_pos = sample["prompt"].find(".", len(sample["prompt"]) // 3 * 2)
+    #     if split_pos == -1:
+    #         split_pos = sample["prompt"].find(",", len(sample["prompt"]) // 3 * 2)
+    #     if split_pos == -1:
+    #         continue
+    #     knowledge, input_ = sample["prompt"][:split_pos+1], sample["prompt"][split_pos+1:]
+    #     if len(input_) < 3:
+    #         continue
+    #     my_sample = {
+    #         "knowledge": knowledge,
+    #         "input": input_,
+    #         "target": sample["response"],
+    #     }
+    #     dataset_samples.append(my_sample)
+    # print(f"有效样本数量 (orca): {len(dataset_samples)}")  
+    # all_samples.extend(dataset_samples)
+    # if save:
+    #     dataset.save_to_disk("./data/pretrain/orca")
+
+    print("loading: math")
+    path = "qwedsacf/grade-school-math-instructions"
+    if load_from_local:
+        dataset_samples = json.load(open("./data/pretrain/math.json"))
+    else:
+        dataset = datasets.load_dataset(path)
+        dataset_samples = []
+        for sample in tqdm(dataset["train"]):
+            keywords = ["how", "what", "when"]
+            knowledge = ""
+            input_ = ""
+            for keyword in keywords:
+                match = re.search(r"\b" + keyword + r"\b", sample["INSTRUCTION"], re.IGNORECASE)
+                if match:
+                    start_pos = match.start()
+                    knowledge = sample["INSTRUCTION"][:start_pos].strip()
+                    input_ = sample["INSTRUCTION"][start_pos:].strip()
+                    break
+            
+            if not knowledge or not input_:
+                continue
+
+            my_sample = {
+                "knowledge": knowledge,
+                "input": input_,
+                "target": sample["RESPONSE"],
+            }
+            dataset_samples.append(my_sample)
+        print(f"有效样本数量 (math): {len(dataset_samples)}")  
+    all_samples.extend(dataset_samples)
+    if save:
+        json.dump(dataset_samples, open("./data/pretrain/math.json", "w"))
+
+    print("loading: instruction")
+    path = "HuggingFaceH4/instruction-dataset"
+    if load_from_local:
+        dataset_samples = json.load(open("./data/pretrain/instruction.json"))
+    else:
+        dataset = datasets.load_dataset(path)
+        dataset_samples = []
+        for sample in tqdm(dataset["test"]):
+            split_pos = sample["prompt"].find("\n", len(sample["prompt"]) // 3)
+            if split_pos == -1:
+                split_pos = sample["prompt"].find("?", len(sample["prompt"]) // 3)
+            if split_pos == -1:
+                split_pos = sample["prompt"].find(".", len(sample["prompt"]) // 3)
+            if split_pos == -1:
+                split_pos = sample["prompt"].find(",", len(sample["prompt"]) // 3)
+            if split_pos == -1:
+                continue
+            knowledge, input_ = sample["prompt"][:split_pos+1], sample["prompt"][split_pos+1:]
+            if len(input_) < 3:
+                continue
+            my_sample = {
+                "knowledge": knowledge,
+                "input": input_,
+                "target": sample["completion"],
+            }
+            dataset_samples.append(my_sample)
+        print(f"有效样本数量 (instruction): {len(dataset_samples)}")  
+    all_samples.extend(dataset_samples)
+    if save:
+        json.dump(dataset_samples, open("./data/pretrain/instruction.json", "w"))
+
+    print("loading: dolly")
+    path = "llm-wizard/dolly-15k-instruction-alpaca-format"
+    if load_from_local:
+        dataset_samples = json.load(open("./data/pretrain/dolly.json"))
+    else:
+        dataset = datasets.load_dataset(path)
+        dataset_samples = []
+        for sample in tqdm(dataset["train"]):
+            if sample["input"] == "":
+                continue
+            my_sample = {
+                "knowledge": sample["instruction"],
+                "input": sample["input"],
+                "target": sample["output"],
+            }
+            dataset_samples.append(my_sample)
+        print(f"有效样本数量 (dolly): {len(dataset_samples)}")  
+    all_samples.extend(dataset_samples)
+    if save:
+        json.dump(dataset_samples, open("./data/pretrain/dolly.json", "w"))
+
+    print("loading: planner")
+    path = "rewoo/planner_instruction_tuning_2k"
+    if load_from_local:
+        dataset_samples = json.load(open("./data/pretrain/planner.json"))
+    else:
+        dataset = datasets.load_dataset(path)
+        dataset_samples = []
+        for sample in tqdm(list(dataset["train"])[:100]):
+            my_sample = {
+                "knowledge": sample["instruction"],
+                "input": sample["input"],
+                "target": sample["output"],
+            }
+            dataset_samples.append(my_sample)
+        print(f"有效样本数量 (planner): {len(dataset_samples)}")  
+    all_samples.extend(dataset_samples)
+    if save:
+        json.dump(dataset_samples, open("./data/pretrain/planner.json", "w"))
+
+    print("loading: code")
+    path = "TokenBender/code_instructions_122k_alpaca_style"
+    if load_from_local:
+        dataset_samples = json.load(open("./data/pretrain/code.json"))
+    else:
+        dataset = datasets.load_dataset(path)
+        dataset_samples = []
+        for sample in tqdm(list(dataset["train"])[:10000]):
+            if sample["input"] == "":
+                continue
+            my_sample = {
+                "knowledge": sample["instruction"],
+                "input": f"### Example Input:\n{sample['input']}",
+                "target": sample["output"],
+            }
+            dataset_samples.append(my_sample)
+        print(f"有效样本数量 (code): {len(dataset_samples)}")  
+    all_samples.extend(dataset_samples)
+    if save:
+        json.dump(dataset_samples, open("./data/pretrain/code.json", "w"))
+    
+    print("loading: silk-road")
+    path = "silk-road/alpaca-data-gpt4-chinese"
+    if load_from_local:
+        dataset_samples = json.load(open("./data/pretrain/silk-road.json"))
+    else:
+        dataset = datasets.load_dataset(path)
+        dataset_samples = []
+        for sample in tqdm(dataset["train"]):
+            if sample["input"] == "":
+                continue
+            my_sample = {
+                "knowledge": sample["instruction"],
+                "input": sample["input"],
+                "target": sample["output"],
+            }
+            dataset_samples.append(my_sample)
+        print(f"有效样本数量 (silk-road): {len(dataset_samples)}")  
+    all_samples.extend(dataset_samples)
+    if save:
+        json.dump(dataset_samples, open("./data/pretrain/silk-road.json", "w"))
+
+    # print("loading: sail")
+    # path = "sail/symbolic-instruction-tuning"
+    # dataset = datasets.load_dataset(path)
+    # dataset_samples = []
+    # for sample in tqdm(dataset["train"]):
+    #     split_pos = sample["input"].find("\n", len(sample["input"]) // 3 * 2)
+    #     if split_pos == -1:
+    #         split_pos = sample["input"].find("?", len(sample["input"]) // 3 * 2)
+    #     if split_pos == -1:
+    #         split_pos = sample["input"].find(".", len(sample["input"]) // 3 * 2)
+    #     if split_pos == -1:
+    #         split_pos = sample["input"].find(",", len(sample["input"]) // 3 * 2)
+    #     if split_pos == -1:
+    #         continue
+    #     knowledge, input_ = sample["input"][:split_pos+1], sample["input"][split_pos+1:]
+    #     if len(input_) < 3:
+    #         continue
+    #     my_sample = {
+    #         "knowledge": knowledge,
+    #         "input": input_,
+    #         "target": sample["output"],
+    #     }
+    #     dataset_samples.append(my_sample)
+    # print(f"有效样本数量 (sail): {len(dataset_samples)}")  
+    # all_samples.extend(dataset_samples)
+
+    # elif dataset == "symbol":
+    #     path = "Symbol-LLM/Symbolic_Collection"
+    #     dataset = datasets.load_dataset(path)
+    #     for sample in dataset["train"]:
+    #         my_sample = {
+    #             "knowledge": sample["instruction"],
+    #             "input": sample["input"],
+    #             "target": sample["output"],
+    #         }
+    #         all_samples.append(my_sample)
+
+    print("loading: self-instruct")
+    path = "yizhongw/self_instruct"
+    if load_from_local:
+        dataset_samples = json.load(open("./data/pretrain/self-instruct.json"))
+    else:
+        dataset = datasets.load_dataset(path, "super_natural_instructions")
+        dataset_samples = []
+        for sample in tqdm(list(dataset["train"]) + list(dataset["test"])):
+            split_pos = sample["prompt"].find("Input:")
+            if split_pos == -1:
+                continue
+            knowledge, input_ = sample["prompt"][:split_pos+1], sample["prompt"][split_pos+1:]
+            my_sample = {
+                "knowledge": knowledge,
+                "input": input_,
+                "target": sample["completion"],
+            }
+            dataset_samples.append(my_sample)
+        print(f"有效样本数量 (self-instruct): {len(dataset_samples)}")  
+    all_samples.extend(dataset_samples) 
+    if save:
+        json.dump(dataset_samples, open("./data/pretrain/self-instruct.json", "w"))
+
+    all_samples = [sample for sample in all_samples if len(sample['input'].split(' ')) < 50 and len(sample['target'].split(' ')) < 50 and len(sample['knowledge'].split(' ')) < 50]
+
+    random.shuffle(all_samples)
+    if valid_ratio:
+        valid_num = max(round(len(all_samples)*valid_ratio), 1)
+    print(f"train_num: {len(all_samples) - valid_num}, valid_num: {valid_num}")
+    train_dataset = all_samples[:-valid_num]
+    valid_dataset = all_samples[-valid_num:]
+    return train_dataset, valid_dataset
 
 def normalize_answer(s):
     """Lower text and remove punctuation, and extra whitespace."""
@@ -457,3 +804,4 @@ def compute_metrics(predictions, references, xlingual=False):
     return metrics
 
 # load_task_data('sni', test_ratio=0.1, unseen_task_ratio=0.1, num_words=32, num_pertask=1000, task_fields='Translation')
+

@@ -13,7 +13,10 @@ while [[ "$#" -gt 0 ]]; do
         --model_name_or_path) model_name_or_path="$2"; shift ;;
         --meta_exp_dir) meta_exp_dir="$2"; shift ;;
         --exp_name) exp_name="$2"; shift ;;
+        --lr) lr="$2"; shift ;;
+        --pretraining) pretraining="$2"; shift ;;
         --method) method="$2"; shift ;;
+        --num_peak) num_peak="$2"; shift ;;
         --fuse_method) fuse_method="$2"; shift ;;
         --ebm_optim_method) ebm_optim_method="$2"; shift ;;
         --prior) prior="$2"; shift ;;
@@ -25,6 +28,7 @@ while [[ "$#" -gt 0 ]]; do
         --flow_loss_weight) flow_loss_weight="$2"; shift ;;
         --batch_size) batch_size="$2"; shift ;;
         --num_soft_token) num_soft_token="$2"; shift ;;
+        --beta) beta="$2"; shift ;;
         --selected_layers) selected_layers="$2"; shift ;;
         --latent_size) latent_size="$2"; shift ;;
         --encoder_device) encoder_device="$2"; shift ;;
@@ -36,6 +40,9 @@ while [[ "$#" -gt 0 ]]; do
         --load_exp) load_exp="$2"; shift ;;
         --unseen_task_ratio) unseen_task_ratio="$2"; shift ;;
         --load_epoch) load_epoch="$2"; shift ;;
+        --lora_r) lora_r="$2"; shift ;;
+        --lora_alpha) lora_alpha="$2"; shift ;;
+        --target_modules) target_modules="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -58,6 +65,14 @@ if [ -n "$meta_exp_dir" ]; then
     args="$args --meta_exp_dir $meta_exp_dir"
 fi
 
+if [ "$pretraining" = "True" ] || [ "$pretraining" = "true" ]; then
+    args="$args --pretraining"
+fi
+
+if [ -n "$num_peak" ]; then
+    args="$args --num_peak $num_peak"
+fi
+
 if [ -n "$exp_name" ]; then
     args="$args --exp_name $exp_name"
 fi
@@ -68,6 +83,10 @@ fi
 
 if [ -n "$ebm_optim_method" ]; then
     args="$args --ebm_optim_method $ebm_optim_method"
+fi
+
+if [ -n "$lr" ]; then
+    args="$args --lr $lr"
 fi
 
 if [ -n "$prior" ]; then
@@ -104,6 +123,10 @@ fi
 
 if [ -n "$num_soft_token" ]; then
     args="$args --num_soft_token $num_soft_token"
+fi
+
+if [ -n "$beta" ]; then
+    args="$args --beta $beta"
 fi
 
 if [ -n "$num_latent_samples" ]; then
@@ -152,6 +175,18 @@ fi
 
 if [ -n "$fuse_method" ]; then
     args="$args --fuse_method $fuse_method"
+fi
+
+if [ -n "$lora_r" ]; then
+    args="$args --lora_r $lora_r"
+fi
+
+if [ -n "$lora_alpha" ]; then
+    args="$args --lora_alpha $lora_alpha"
+fi
+
+if [ -n "$target_modules" ]; then
+    args="$args --target_modules $target_modules"
 fi
 
 eval "$python_cmd $args"
