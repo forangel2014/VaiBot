@@ -17,13 +17,14 @@ while [[ "$#" -gt 0 ]]; do
         --pretraining) pretraining="$2"; shift ;;
         --method) method="$2"; shift ;;
         --num_peak) num_peak="$2"; shift ;;
+        --valid_epoch) valid_epoch="$2"; shift ;;
         --fuse_method) fuse_method="$2"; shift ;;
         --ebm_optim_method) ebm_optim_method="$2"; shift ;;
         --prior) prior="$2"; shift ;;
         --alignment_loss_weight) alignment_loss_weight="$2"; shift ;;
         --task_loss_weight) task_loss_weight="$2"; shift ;;
         --entropy_loss_weight) entropy_loss_weight="$2"; shift ;;
-        --kl_loss_weight) kl_loss_weight="$2"; shift ;;
+        --reg_loss_weight) reg_loss_weight="$2"; shift ;;
         --recon_loss_weight) recon_loss_weight="$2"; shift ;;
         --flow_loss_weight) flow_loss_weight="$2"; shift ;;
         --batch_size) batch_size="$2"; shift ;;
@@ -39,6 +40,7 @@ while [[ "$#" -gt 0 ]]; do
         --num_latent_samples) num_latent_samples="$2"; shift ;;
         --load_exp) load_exp="$2"; shift ;;
         --unseen_task_ratio) unseen_task_ratio="$2"; shift ;;
+        --test_sample_num) test_sample_num="$2"; shift ;;
         --load_epoch) load_epoch="$2"; shift ;;
         --lora_r) lora_r="$2"; shift ;;
         --lora_alpha) lora_alpha="$2"; shift ;;
@@ -85,8 +87,16 @@ if [ -n "$ebm_optim_method" ]; then
     args="$args --ebm_optim_method $ebm_optim_method"
 fi
 
+if [ -n "$test_sample_num" ]; then
+    args="$args --test_sample_num $test_sample_num"
+fi
+
 if [ -n "$lr" ]; then
     args="$args --lr $lr"
+fi
+
+if [ -n "$valid_epoch" ]; then
+    args="$args --valid_epoch $valid_epoch"
 fi
 
 if [ -n "$prior" ]; then
@@ -97,8 +107,8 @@ if [ -n "$alignment_loss_weight" ]; then
     args="$args --alignment_loss_weight $alignment_loss_weight"
 fi
 
-if [ -n "$kl_loss_weight" ]; then
-    args="$args --kl_loss_weight $kl_loss_weight"
+if [ -n "$reg_loss_weight" ]; then
+    args="$args --reg_loss_weight $reg_loss_weight"
 fi
 
 if [ -n "$task_loss_weight" ]; then

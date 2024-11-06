@@ -143,53 +143,6 @@ class Nesy(nn.Module):
 
     def forward(self, knowledge_batch, x_batch, y_batch):
         
-        #knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="max_length", max_length=self.args.max_token, truncation=True).input_ids.to(self.args.encoder_device)
-        batch_size = len(knowledge_batch)
-        kl_loss = 0
-        recon_loss = 0
-        task_loss = 0
-        reference_task_loss = 0
-        alignment_loss = 0
-
-        self.reference_optimizer.zero_grad()
-        for i in range(batch_size):
-            reference_params = self.reference_trained_params[self.args.knowledge2task_id[knowledge_batch[i]]]
-            reference_task_loss += self.compute_task_loss(reference_params.view(1,-1), [x_batch[i]], [y_batch[i]])        
-        reference_task_loss /= batch_size
-        reference_task_loss.backward()
-        self.reference_optimizer.step()
-
-        for i in range(batch_size):
-            knowledge_ids = self.llm.tokenizer(knowledge_batch[i], return_tensors="pt").input_ids.to(self.args.encoder_device)
-            mean, log_var = self.encode(knowledge_ids)
-            kl_loss += self.compute_kl_loss(mean, log_var)
-
-            sampled_latent = self.reparameterize(mean, log_var)
-
-            sampled_latent = sampled_latent.to(self.args.decoder_device)
-            knowledge_ids = knowledge_ids.to(self.args.decoder_device)
-            recon_loss += self.compute_recon_loss(sampled_latent, knowledge_ids)
-            
-            sampled_latent = sampled_latent.to(self.args.task_device)
-            # task_loss += self.compute_task_loss(sampled_latent, [x_batch[i]], [y_batch[i]])
-            # alignment_loss += torch.norm(sampled_latent - self.reference_trained_params[self.args.knowledge2task_id[knowledge_batch[i]]].detach())
-            task_loss += self.compute_task_loss(sampled_latent, [x_batch[i]]*self.args.num_latent_samples, [y_batch[i]]*self.args.num_latent_samples)
-            alignment_loss += torch.norm(sampled_latent - self.reference_trained_params[self.args.knowledge2task_id[knowledge_batch[i]]].detach().to(self.args.task_device)) / self.args.num_latent_samples
-
-        kl_loss = kl_loss.to(self.args.backward_device)
-        recon_loss = recon_loss.to(self.args.backward_device)
-        task_loss = task_loss.to(self.args.backward_device)
-        alignment_loss = alignment_loss.to(self.args.backward_device)
-
-        kl_loss /= batch_size
-        recon_loss /= batch_size
-        task_loss /= batch_size
-        alignment_loss /= batch_size
-        
-        return kl_loss, recon_loss, task_loss, alignment_loss, reference_task_loss
-
-    def forward_batch(self, knowledge_batch, x_batch, y_batch):
-        
         batch_size = len(knowledge_batch)
 
         # self.reference_optimizer.zero_grad()
@@ -201,7 +154,8 @@ class Nesy(nn.Module):
 
         knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
         mean, log_var = self.encode(knowledge_ids)
-        kl_loss = self.compute_kl_loss(mean, log_var)
+        
+        #reg_loss = self.compute_kl_loss(mean, log_var)
 
         sampled_latent = self.reparameterize(mean, log_var)
 
@@ -214,12 +168,14 @@ class Nesy(nn.Module):
 
         #alignment_loss = torch.mean(torch.norm(sampled_latent - reference_params.detach().to(self.args.task_device), dim=1)) #/ self.args.num_latent_samples
 
-        kl_loss = kl_loss.to(self.args.backward_device)
+        reg_loss = sampled_latent.norm(1, dim=1).mean() / self.args.latent_size
+
         recon_loss = recon_loss.to(self.args.backward_device)
         task_loss = task_loss.to(self.args.backward_device)
+        reg_loss = reg_loss.to(self.args.backward_device)
         #alignment_loss = alignment_loss.to(self.args.backward_device)
 
-        return kl_loss, recon_loss, task_loss#, alignment_loss, reference_task_loss
+        return reg_loss, recon_loss, task_loss#, alignment_loss, reference_task_loss
 
     def eval_task(self, knowledge_batch, x_batch, y_batch, evaluater):
         

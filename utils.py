@@ -157,10 +157,11 @@ def load_task_data(task, unseen_task_ratio=None, unseen_task_num=None, test_samp
     
     if task == "list_functions":
         
-        prompt_template = """please predict the output list given the input list.
-input: {}
-output: """
+#         prompt_template = """please predict the output list given the input list.
+# input: {}
+# output: """
 
+        prompt_template = "{}"
         all_data["prompt_template"] = prompt_template
         
         all_task_id = list(range(1, 251))
@@ -267,10 +268,11 @@ transformation B: {knowledge_pred}
 
     elif task == "sni":
         
-        prompt_template = """Please complete the following task given the input and only return the output without other words.
-Input: {}
-Output: """
+#         prompt_template = """Please complete the following task given the input and only return the output without other words.
+# Input: {}
+# Output: """
 
+        prompt_template = "{}"
         all_data["prompt_template"] = prompt_template
         with open(f"./data/{task}/tasks_{num_words}.txt") as f:
             train_tasks = f.readlines()
@@ -414,10 +416,14 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
         dataset = datasets.load_dataset(path)
         dataset_samples = []
         for sample in tqdm(dataset["train"]):
-            split_pos = sample["instruction"].find(":")
+            split_pos = sample["instruction"].lower().find("input:")
+            input_pos = split_pos + len("input:")
+            if split_pos == -1:
+                split_pos = sample["instruction"].find(":")
+                input_pos = split_pos + len(":")
             if split_pos == -1:
                 continue
-            knowledge, input_ = sample["instruction"][:split_pos], sample["instruction"][split_pos+1:]
+            knowledge, input_ = sample["instruction"][:split_pos], sample["instruction"][input_pos:]
             if len(input_) < 3:
                 continue
             my_sample = {
@@ -426,7 +432,7 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
                 "target": sample["response"],
             }
             dataset_samples.append(my_sample)
-        print(f"有效样本数量 (LaMini-instruction): {len(dataset_samples)}")  
+    print(f"有效样本数量 (LaMini-instruction): {len(dataset_samples)}")  
     all_samples.extend(dataset_samples)
     if save:
         json.dump(dataset_samples, open("./data/pretrain/LaMini-instruction.json", "w"))
@@ -490,7 +496,7 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
                 "target": sample["output"],
             }
             dataset_samples.append(my_sample)
-        print(f"有效样本数量 (alpaca): {len(dataset_samples)}")  
+    print(f"有效样本数量 (alpaca): {len(dataset_samples)}")  
     all_samples.extend(dataset_samples)
     if save:
         json.dump(dataset_samples, open("./data/pretrain/alpaca.json", "w"))
@@ -524,38 +530,38 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
     # if save:
     #     dataset.save_to_disk("./data/pretrain/orca")
 
-    print("loading: math")
-    path = "qwedsacf/grade-school-math-instructions"
-    if load_from_local:
-        dataset_samples = json.load(open("./data/pretrain/math.json"))
-    else:
-        dataset = datasets.load_dataset(path)
-        dataset_samples = []
-        for sample in tqdm(dataset["train"]):
-            keywords = ["how", "what", "when"]
-            knowledge = ""
-            input_ = ""
-            for keyword in keywords:
-                match = re.search(r"\b" + keyword + r"\b", sample["INSTRUCTION"], re.IGNORECASE)
-                if match:
-                    start_pos = match.start()
-                    knowledge = sample["INSTRUCTION"][:start_pos].strip()
-                    input_ = sample["INSTRUCTION"][start_pos:].strip()
-                    break
+    # print("loading: math")
+    # path = "qwedsacf/grade-school-math-instructions"
+    # if load_from_local:
+    #     dataset_samples = json.load(open("./data/pretrain/math.json"))
+    # else:
+    #     dataset = datasets.load_dataset(path)
+    #     dataset_samples = []
+    #     for sample in tqdm(dataset["train"]):
+    #         keywords = ["how", "what", "when"]
+    #         knowledge = ""
+    #         input_ = ""
+    #         for keyword in keywords:
+    #             match = re.search(r"\b" + keyword + r"\b", sample["INSTRUCTION"], re.IGNORECASE)
+    #             if match:
+    #                 start_pos = match.start()
+    #                 knowledge = sample["INSTRUCTION"][:start_pos].strip()
+    #                 input_ = sample["INSTRUCTION"][start_pos:].strip()
+    #                 break
             
-            if not knowledge or not input_:
-                continue
+    #         if not knowledge or not input_:
+    #             continue
 
-            my_sample = {
-                "knowledge": knowledge,
-                "input": input_,
-                "target": sample["RESPONSE"],
-            }
-            dataset_samples.append(my_sample)
-        print(f"有效样本数量 (math): {len(dataset_samples)}")  
-    all_samples.extend(dataset_samples)
-    if save:
-        json.dump(dataset_samples, open("./data/pretrain/math.json", "w"))
+    #         my_sample = {
+    #             "knowledge": knowledge,
+    #             "input": input_,
+    #             "target": sample["RESPONSE"],
+    #         }
+    #         dataset_samples.append(my_sample)
+    # print(f"有效样本数量 (math): {len(dataset_samples)}")  
+    # all_samples.extend(dataset_samples)
+    # if save:
+    #     json.dump(dataset_samples, open("./data/pretrain/math.json", "w"))
 
     print("loading: instruction")
     path = "HuggingFaceH4/instruction-dataset"
@@ -583,7 +589,7 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
                 "target": sample["completion"],
             }
             dataset_samples.append(my_sample)
-        print(f"有效样本数量 (instruction): {len(dataset_samples)}")  
+    print(f"有效样本数量 (instruction): {len(dataset_samples)}")  
     all_samples.extend(dataset_samples)
     if save:
         json.dump(dataset_samples, open("./data/pretrain/instruction.json", "w"))
@@ -604,29 +610,29 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
                 "target": sample["output"],
             }
             dataset_samples.append(my_sample)
-        print(f"有效样本数量 (dolly): {len(dataset_samples)}")  
+    print(f"有效样本数量 (dolly): {len(dataset_samples)}")  
     all_samples.extend(dataset_samples)
     if save:
         json.dump(dataset_samples, open("./data/pretrain/dolly.json", "w"))
 
-    print("loading: planner")
-    path = "rewoo/planner_instruction_tuning_2k"
-    if load_from_local:
-        dataset_samples = json.load(open("./data/pretrain/planner.json"))
-    else:
-        dataset = datasets.load_dataset(path)
-        dataset_samples = []
-        for sample in tqdm(list(dataset["train"])[:100]):
-            my_sample = {
-                "knowledge": sample["instruction"],
-                "input": sample["input"],
-                "target": sample["output"],
-            }
-            dataset_samples.append(my_sample)
-        print(f"有效样本数量 (planner): {len(dataset_samples)}")  
-    all_samples.extend(dataset_samples)
-    if save:
-        json.dump(dataset_samples, open("./data/pretrain/planner.json", "w"))
+    # print("loading: planner")
+    # path = "rewoo/planner_instruction_tuning_2k"
+    # if load_from_local:
+    #     dataset_samples = json.load(open("./data/pretrain/planner.json"))
+    # else:
+    #     dataset = datasets.load_dataset(path)
+    #     dataset_samples = []
+    #     for sample in tqdm(list(dataset["train"])[:100]):
+    #         my_sample = {
+    #             "knowledge": sample["instruction"],
+    #             "input": sample["input"],
+    #             "target": sample["output"],
+    #         }
+    #         dataset_samples.append(my_sample)
+    # print(f"有效样本数量 (planner): {len(dataset_samples)}")  
+    # all_samples.extend(dataset_samples)
+    # if save:
+    #     json.dump(dataset_samples, open("./data/pretrain/planner.json", "w"))
 
     print("loading: code")
     path = "TokenBender/code_instructions_122k_alpaca_style"
@@ -644,7 +650,7 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
                 "target": sample["output"],
             }
             dataset_samples.append(my_sample)
-        print(f"有效样本数量 (code): {len(dataset_samples)}")  
+    print(f"有效样本数量 (code): {len(dataset_samples)}")  
     all_samples.extend(dataset_samples)
     if save:
         json.dump(dataset_samples, open("./data/pretrain/code.json", "w"))
@@ -665,7 +671,7 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
                 "target": sample["output"],
             }
             dataset_samples.append(my_sample)
-        print(f"有效样本数量 (silk-road): {len(dataset_samples)}")  
+    print(f"有效样本数量 (silk-road): {len(dataset_samples)}")  
     all_samples.extend(dataset_samples)
     if save:
         json.dump(dataset_samples, open("./data/pretrain/silk-road.json", "w"))
@@ -718,19 +724,19 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
             split_pos = sample["prompt"].find("Input:")
             if split_pos == -1:
                 continue
-            knowledge, input_ = sample["prompt"][:split_pos+1], sample["prompt"][split_pos+1:]
+            knowledge, input_ = sample["prompt"][:split_pos], sample["prompt"][split_pos+len("Input:"):]
             my_sample = {
                 "knowledge": knowledge,
                 "input": input_,
                 "target": sample["completion"],
             }
             dataset_samples.append(my_sample)
-        print(f"有效样本数量 (self-instruct): {len(dataset_samples)}")  
+    print(f"有效样本数量 (self-instruct): {len(dataset_samples)}")  
     all_samples.extend(dataset_samples) 
     if save:
         json.dump(dataset_samples, open("./data/pretrain/self-instruct.json", "w"))
 
-    all_samples = [sample for sample in all_samples if len(sample['input'].split(' ')) < 50 and len(sample['target'].split(' ')) < 50 and len(sample['knowledge'].split(' ')) < 50]
+    all_samples = [sample for sample in all_samples if len(sample['input'].split(' ')) < 20 and len(sample['target'].split(' ')) < 20 and len(sample['knowledge'].split(' ')) < 20 and len(sample['knowledge'].split(' ')) > 1]
 
     random.shuffle(all_samples)
     if valid_ratio:

@@ -162,15 +162,15 @@ class WrappedLLM(nn.Module):
             name, idx, weight = self.param_info[i]
             dict(self.task_model.named_parameters())[name].view(-1)[idx].copy_(weight)
 
-
     def encode(self, inputs):
-        
-        attention_mask = inputs != self.tokenizer.pad_token_id
-        
-        outputs = self.encoder(inputs, attention_mask=attention_mask)
+        if inputs.dim() == 2:
+            attention_mask = inputs != self.tokenizer.pad_token_id
+            outputs = self.encoder(inputs, attention_mask=attention_mask)
+        else:
+            outputs = self.encoder(inputs_embeds=inputs)
 
         return outputs[0]#.float()
-    
+
     def decode(self, embedding, labels):
         attention_mask = labels != self.tokenizer.pad_token_id
         inputs_embeds = self.decoder_model.model.embed_tokens(labels)#.repeat(embedding.shape[0], 1, 1)
@@ -229,7 +229,7 @@ class WrappedLLM(nn.Module):
         
         if self.args.fuse_method == "delta":
             
-            if new_task_parameters:
+            if new_task_parameters is not None:
                 inputs = [x_id, new_task_parameters]
             else:
                 inputs = x_id
@@ -250,13 +250,23 @@ class WrappedLLM(nn.Module):
         elif self.args.fuse_method == "p-tuning":
             
             batch_size = x_id.size(0)
-            soft_token_embedding = new_task_parameters.view(batch_size, self.args.num_soft_token, self.config.hidden_size)
-            inputs_embeds = self.task_model.model.embed_tokens(x_id)
-            total_embeds = torch.cat((soft_token_embedding, inputs_embeds), dim=1)
+            if new_task_parameters is not None:
+                soft_token_embedding = new_task_parameters.view(batch_size, self.args.num_soft_token, self.config.hidden_size)
+                inputs_embeds = self.task_model.model.embed_tokens(x_id)
+                total_embeds = torch.cat((soft_token_embedding, inputs_embeds), dim=1)
 
-            attention_mask = x_id != self.tokenizer.pad_token_id
-            pad_attention = torch.full_like(soft_token_embedding[:, :, 0], 1, dtype=torch.int)
-            total_attention = torch.cat((pad_attention, attention_mask), dim=1)
+            else:
+                inputs_embeds = self.task_model.model.embed_tokens(x_id)
+                total_embeds = inputs_embeds
+
+            if new_task_parameters is not None:
+                attention_mask = x_id != self.tokenizer.pad_token_id
+                pad_attention = torch.full_like(soft_token_embedding[:, :, 0], 1, dtype=torch.int)
+                total_attention = torch.cat((pad_attention, attention_mask), dim=1)
+
+            else:
+                attention_mask = x_id != self.tokenizer.pad_token_id
+                total_attention = attention_mask
 
             response = self.task_model.generate(inputs_embeds=total_embeds,
                                     attention_mask=total_attention,

@@ -56,3 +56,4 @@
         -计算对数似然，优化
         -流模型正确的训练方法：从param space中，根据EBM建模的分布采样（MCMC?），然后backward到latent space中，计算最大似然
         -pretrain abc
+        -加强正则，要求delta params稀疏
