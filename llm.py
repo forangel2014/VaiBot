@@ -100,7 +100,7 @@ class WrappedLLM(nn.Module):
         self.encoder.save_pretrained(os.path.join(dir, "encoder_lora"))
         self.decoder.save_pretrained(os.path.join(dir, "decoder_lora"))
         json.dump(self.param_info, open(os.path.join(dir, "params_info.json"), "w"))
-        
+
     def load(self, dir):
         self.encoder = PeftModel.from_pretrained(self.encoder_model.model, os.path.join(dir, "encoder_lora")).to(self.args.encoder_device)
         self.decoder = PeftModel.from_pretrained(self.decoder_model, os.path.join(dir, "decoder_lora")).to(self.args.decoder_device)
@@ -171,13 +171,17 @@ class WrappedLLM(nn.Module):
 
         return outputs[0]#.float()
 
-    def decode(self, embedding, labels):
+    def decode(self, embedding, labels, instance_embedding=None):
         attention_mask = labels != self.tokenizer.pad_token_id
         inputs_embeds = self.decoder_model.model.embed_tokens(labels)#.repeat(embedding.shape[0], 1, 1)
         #labels = labels.repeat(embedding.shape[0], 1)
         # if embedding.dim() == 2:
         #     embedding = embedding.unsqueeze(1)
         soft_token_embedding = embedding.view(embedding.shape[0], self.args.num_soft_token, self.config.hidden_size)
+
+        if self.args.use_instance_in_decoder:
+            soft_token_embedding = torch.cat((soft_token_embedding, instance_embedding), dim=1)
+
         total_embeds = torch.cat((soft_token_embedding, inputs_embeds), dim=1)
         pad_tokens = torch.full_like(soft_token_embedding[:, :, 0], self.tokenizer.pad_token_id, dtype=torch.int)
         total_labels = torch.cat((pad_tokens, labels), dim=1)
@@ -235,7 +239,7 @@ class WrappedLLM(nn.Module):
                 inputs = x_id
                 
             response = self.task_model.generate(inputs=inputs, 
-                                    max_length=x_id.shape[1]+self.args.max_token, 
+                                    max_new_tokens=self.args.max_token, 
                                     early_stopping=True,
                                     eos_token_id=self.tokenizer.eos_token_id,
                                     pad_token_id=self.tokenizer.pad_token_id,
@@ -270,7 +274,7 @@ class WrappedLLM(nn.Module):
 
             response = self.task_model.generate(inputs_embeds=total_embeds,
                                     attention_mask=total_attention,
-                                    max_length=x_id.shape[1]+self.args.max_token, 
+                                    max_new_tokens=self.args.max_token, 
                                     early_stopping=True,
                                     eos_token_id=self.tokenizer.eos_token_id,
                                     pad_token_id=self.tokenizer.pad_token_id,
@@ -282,16 +286,19 @@ class WrappedLLM(nn.Module):
         
         return text
 
-    def sample(self, embedding):
+    def sample(self, embedding, instance_embedding=None):
         
         # if embedding.dim() == 2:
         #     embedding = embedding.unsqueeze(1)
         embedding = embedding.view(embedding.shape[0], self.args.num_soft_token, self.config.hidden_size)
         
+        if instance_embedding is not None:
+            embedding = torch.cat((embedding, instance_embedding), dim=1)
+        
         embedding = embedding.bfloat16()
         
         response = self.decoder_model.generate(inputs_embeds=embedding, 
-                                max_length=self.args.max_token, 
+                                max_new_tokens=self.args.max_token, 
                                 early_stopping=True,
                                 eos_token_id=self.tokenizer.eos_token_id,
                                 pad_token_id=self.tokenizer.pad_token_id,

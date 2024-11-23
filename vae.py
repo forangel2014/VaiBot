@@ -66,19 +66,27 @@ class Nesy(nn.Module):
         log_var = hidden[:, self.latent_size:]
         return mean, log_var
     
-    def compute_recon_loss(self, latent, labels):
+    def compute_recon_loss(self, latent, labels, instance=None):
         embedding = self.decoder_mlp(latent)
-        outputs = self.llm.decode(embedding, labels)
+        if self.args.use_instance_in_decoder:
+            instance_embedding = self.llm.decoder_model.model.embed_tokens(instance)
+            outputs = self.llm.decode(embedding, labels, instance_embedding)
+        else:
+            outputs = self.llm.decode(embedding, labels)
         return outputs
 
-    def sample(self, context, sample_from_guassian=True):
+    def sample(self, context, sample_from_guassian=True, instance=None):
         
         if sample_from_guassian:
             sampled_latent = self.reparameterize(context, torch.ones_like(context)).to(self.args.decoder_device)
         else:
             sampled_latent = context
         embedding = self.decoder_mlp(sampled_latent)
-        sampled_ids = self.llm.sample(embedding)
+        if self.args.use_instance_in_decoder:
+            instance_embedding = self.llm.decoder_model.model.embed_tokens(instance)
+            sampled_ids = self.llm.sample(embedding, instance_embedding)
+        else:
+            sampled_ids = self.llm.sample(embedding)
         #text = [self.llm.tokenizer.decode(k) for k in sampled_ids.tolist()[0]]
         text = self.llm.tokenizer.decode(sampled_ids.tolist()[0], skip_special_tokens=True)
         
@@ -155,20 +163,27 @@ class Nesy(nn.Module):
         knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
         mean, log_var = self.encode(knowledge_ids)
         
-        #reg_loss = self.compute_kl_loss(mean, log_var)
+        reg_loss = self.compute_kl_loss(mean, log_var)
 
         sampled_latent = self.reparameterize(mean, log_var)
 
         sampled_latent = sampled_latent.to(self.args.decoder_device)
         knowledge_ids = knowledge_ids.to(self.args.decoder_device)
-        recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids)
+        
+        if self.args.use_instance_in_decoder:
+            instance = (x_batch, y_batch)
+            instance_text = [f"x: {x}, y: {y}" for x, y in zip(*instance)]
+            instance_ids = self.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.decoder_device)
+        else:
+            instance_ids = None
+        recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids, instance_ids)
 
         sampled_latent = sampled_latent.to(self.args.task_device)
         task_loss = self.compute_task_loss(sampled_latent, x_batch, y_batch)
 
         #alignment_loss = torch.mean(torch.norm(sampled_latent - reference_params.detach().to(self.args.task_device), dim=1)) #/ self.args.num_latent_samples
 
-        reg_loss = sampled_latent.norm(1, dim=1).mean() / self.args.latent_size
+        #reg_loss = sampled_latent.norm(1, dim=1).mean() / self.args.latent_size
 
         recon_loss = recon_loss.to(self.args.backward_device)
         task_loss = task_loss.to(self.args.backward_device)

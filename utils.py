@@ -288,7 +288,6 @@ transformation B: {knowledge_pred}
                     if sub_task_data["Categories"][0] in task_fields:
                         train_tasks.append(task_name)
                 
-        
         all_task_id = list(range(1, len(train_tasks) + 1))
         task_num = len(all_task_id)
         print(f"task_num: {task_num}")
@@ -319,9 +318,9 @@ transformation B: {knowledge_pred}
                 if len(examples) == num_pertask:
                     break
             if len(examples) != num_pertask:
-                print(f"task_name: {train_tasks[sub_task_id - 1].strip()}, task_num: {len(examples)}")
-                if len(examples) < 60:
-                    continue
+                print(f"task_name: {train_tasks[sub_task_id - 1].strip()}, task_num: {len(examples)} is not enough")
+                #if len(examples) < 60:
+                continue
             # examples = sub_task_data["Instances"][:num_pertask]
             rule = description
             
@@ -341,17 +340,23 @@ transformation B: {knowledge_pred}
                 
                 example = examples[i]
                 split = sample_id2split[i]
+                input_ = example["input"] + "." if not example["input"][-1] in string.punctuation else example["input"]
                 output = random.choice(example["output"])
                 if output == '':
                     continue
                 if not output[-1] in string.punctuation:
                     output += "."
 
+                # add format to help LLM understand the task
+                input_ = f"<input>{input_}</input>"
+                output_ = f"<output>{output}</output>"
+                rule_ = f"<instruction>{rule}</instruction>"
+
                 all_data[task_type][split].append({
                     "sub_task_id": sub_task_id,
-                    "input": example["input"] + "." if not example["input"][-1] in string.punctuation else example["input"],
-                    "target": output,
-                    "knowledge": rule,
+                    "input": input_,
+                    "target": output_,
+                    "knowledge": rule_,
                     #"metadata": task_data,
                 })
         
@@ -736,7 +741,12 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
     if save:
         json.dump(dataset_samples, open("./data/pretrain/self-instruct.json", "w"))
 
-    all_samples = [sample for sample in all_samples if len(sample['input'].split(' ')) < 20 and len(sample['target'].split(' ')) < 20 and len(sample['knowledge'].split(' ')) < 20 and len(sample['knowledge'].split(' ')) > 1]
+    all_samples = [sample for sample in all_samples if len(sample['input'].split(' ')) < 30 and len(sample['target'].split(' ')) < 30 and len(sample['knowledge'].split(' ')) < 30 and len(sample['knowledge'].split(' ')) > 1]
+
+    for sample in all_samples:
+        sample["input"] = f"<input>{sample['input']}</input>"
+        sample["target"] = f"<output>{sample['target']}</output>"
+        sample["knowledge"] = f"<instruction>{sample['knowledge']}</instruction>"
 
     random.shuffle(all_samples)
     if valid_ratio:

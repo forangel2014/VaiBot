@@ -57,3 +57,6 @@
         -流模型正确的训练方法：从param space中，根据EBM建模的分布采样（MCMC?），然后backward到latent space中，计算最大似然
         -pretrain abc
         -加强正则，要求delta params稀疏
+
+        -探测一下已见任务的k：1.扰动，2.插值， k1和k2的插值kmean，解码结果和k1k2文本相似度？kmean在k1和k2任务上的预测结果，3.可视化，4.部分维度交换
+        -decoder增加以x,y为条件（看看会不会退化成不依赖于z，丢掉试试），改变z的插入方式

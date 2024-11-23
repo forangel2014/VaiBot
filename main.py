@@ -1,7 +1,7 @@
 import os
 import time
 import shutil
-#os.environ["CUDA_VISIBLE_DEVICES"] = "6,7,8,9"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "0,6,7"
 import argparse
 import random
 import json
@@ -67,8 +67,6 @@ def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_test_d
     keep_training = True
     test_loss_ls = []
     
-    #return params, test_loss_ls
-    
     while keep_training:
 
         for i, batch in tqdm(enumerate(subtask_train_data_loader)):
@@ -99,7 +97,7 @@ def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_test_d
             params, _ = nesy.encode(input_embeds)
             params = params.to(nesy.args.task_device)
             expanded_params = params.repeat_interleave(len(x_batch), dim=0)
-            task_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch) * args.task_loss_weight + args.reg_loss_weight * params.norm(1, dim=1).mean() / args.latent_size
+            task_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch) #* args.task_loss_weight + args.reg_loss_weight * params.norm(1, dim=1).mean() / args.latent_size
             task_loss.backward()
             optimizer.step()
     
@@ -161,8 +159,8 @@ def valid_symbolic2neural(args, epoch, data_loader, nesy, prompt_template, evalu
 
     for batch in data_loader:
         
-        if num_batches >= 5:  # 如果已经处理了10个batch，跳出循环
-            break
+        # if num_batches >= 5:  # 如果已经处理了10个batch，跳出循环
+        #     break
         
         with torch.no_grad():
             knowledge_batch = batch["knowledge"]
@@ -176,7 +174,7 @@ def valid_symbolic2neural(args, epoch, data_loader, nesy, prompt_template, evalu
                 num_test += 1
                 log.flush()
                 
-        num_batches += 1
+        #num_batches += 1
         #break
         
     accuracy = num_correct / num_test
@@ -193,14 +191,11 @@ def valid_neural2symbolic(args, epoch, train_data, test_data, nesy, prompt_templ
     start_time = time.time()
     all_tasks_ids = list(set([sample["sub_task_id"] for sample in test_data]))
     
-    all_tasks_ids = random.sample(all_tasks_ids, 10)
+    #all_tasks_ids = random.sample(all_tasks_ids, 10)
     
     num_correct_symbolic = 0
     num_test_symbolic = 0
-    num_correct_neural = 0
-    num_test_neural = 0
     
-
     for task_id in all_tasks_ids:
 
         subtask_train_data = [data for data in train_data if data["sub_task_id"] == task_id]
@@ -211,54 +206,9 @@ def valid_neural2symbolic(args, epoch, train_data, test_data, nesy, prompt_templ
         num_samples = 1
 
         knowledge_ids = nesy.llm.tokenizer(knowledge, return_tensors="pt").input_ids.to(nesy.args.encoder_device)
-        encoded_latent = [nesy.reparameterize(*nesy.encode(knowledge_ids)) for i in range(num_samples)]
-        randomn_latent = [torch.randn([1, nesy.args.latent_size]) for i in range(num_samples)]
+        #encoded_latent = [nesy.reparameterize(*nesy.encode(knowledge_ids)) for i in range(num_samples)]
+        #randomn_latent = [torch.randn([1, nesy.args.latent_size]) for i in range(num_samples)]
         trained_latent = []
-        
-        # with torch.no_grad():
-            
-        #     if args.method == "vaeflow":
-        #         params = []
-        #         for latent in encoded_latent:
-        #             latent = latent.to(nesy.args.flow_device)
-        #             param = nesy.flow_forward(latent)
-        #             param = param.to(nesy.args.task_device)
-        #             params.append(param)
-        #     else:
-        #         params = [latent.to(nesy.args.task_device) for latent in encoded_latent]
-
-        #     print("encoded params")
-            
-        #     batch = next(iter(subtask_train_data_loader))
-
-        #     x_batch = batch["input"]
-        #     x_batch = [prompt_template.format(x) for x in x_batch]
-        #     y_batch = batch["target"]
-            
-        #     print("params 0")
-        #     expanded_params = params[0].repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
-
-        #     print("params 1")
-        #     expanded_params = params[1].repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
-            
-        #     print("params 0+1 /2")
-        #     expanded_params = ((params[0]+params[1])/2).repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
-
-        #     print("params 2+3+4 /3")
-        #     expanded_params = ((params[3]+params[4]+params[2])/3).repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
-
-        #     print("random params")
-        #     expanded_params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16).repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
     
         for i in range(num_samples):
             
@@ -273,62 +223,28 @@ def valid_neural2symbolic(args, epoch, train_data, test_data, nesy, prompt_templ
                     trained_params = nesy.flow_backward(trained_params).to(nesy.args.decoder_device)
                 else:
                     trained_params = trained_params.to(nesy.args.decoder_device)
-
-                predicted_knowledge = nesy.sample(trained_params, sample_from_guassian=False)
-                encoded_params = encoded_latent[i].to(nesy.args.decoder_device)
-                encode_decode_knowledge = nesy.sample(encoded_params, sample_from_guassian=False)
+                if nesy.args.use_instance_in_decoder:
+                    batch = random.choice(subtask_train_data_loader.dataset)
+                    x = batch["input"]
+                    y = batch["target"]
+                    instance_text = f"x: {x}, y: {y}"
+                    print(instance_text)
+                    instance_ids = nesy.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.decoder_device)
+                else:
+                    instance_ids = None
+                predicted_knowledge = nesy.sample(trained_params, sample_from_guassian=False, instance=instance_ids)
+                #encoded_params = encoded_latent[i].to(nesy.args.decoder_device)
+                #encode_decode_knowledge = nesy.sample(encoded_params, sample_from_guassian=False)
 
             log.writelines(f"prediction on {name} subtask {task_id}: \n")
             log.writelines(f"subtask train loss: {str(test_loss_ls)} \n")
             result = nesy.eval_knowledge(knowledge, predicted_knowledge, evaluater)
             log.writelines(f"{json.dumps(result, indent=4)}\n")
             num_correct_symbolic += result["score"]
-            result = nesy.eval_knowledge(knowledge, encode_decode_knowledge, evaluater)
-            log.writelines(f"{json.dumps(result, indent=4)}\n")
+            # result = nesy.eval_knowledge(knowledge, encode_decode_knowledge, evaluater)
+            # log.writelines(f"{json.dumps(result, indent=4)}\n")
             num_test_symbolic += 1
             log.flush()
-
-        # with torch.no_grad():
-
-        #     print("trained params")
-            
-        #     batch = next(iter(subtask_train_data_loader))
-
-        #     x_batch = batch["input"]
-        #     x_batch = [prompt_template.format(x) for x in x_batch]
-        #     y_batch = batch["target"]
-            
-        #     print("params 0")
-        #     expanded_params = trained_latent[0].repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
-
-        #     print("params 1")
-        #     expanded_params = trained_latent[1].repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
-            
-        #     print("params 0+1 /2")
-        #     expanded_params = ((trained_latent[0]+trained_latent[1])/2).repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
-
-        #     print("params 2+3+4 /3")
-        #     expanded_params = ((trained_latent[3]+trained_latent[4]+trained_latent[2])/3).repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
-
-        #     print("random params")
-        #     expanded_params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16).repeat_interleave(len(x_batch), dim=0)
-        #     test_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-        #     print(test_loss)
-
-        # tsne(encoded_latent, trained_latent, randomn_latent, filename=f"{args.exp_dir}/epoch{epoch}/tsne/task{task_id}.pdf")
-
-        #break
-
-    # accuracy = num_correct_neural / num_test_neural
-    # log.writelines(f"finetuned accuracy on {name} tasks: {accuracy} \n")
 
     accuracy = num_correct_symbolic / num_test_symbolic
     log.writelines(f"neural2symbolic accuracy on {name} samples: {accuracy} \n")
@@ -439,44 +355,47 @@ Output:
     log.writelines(f"neural seen task accuracy of method {method}: {accuracy} \n")
     log.flush()
     
-    # with torch.no_grad():
-    #     for batch in unseen_task_test_data_loader:
-    #         knowledge_batch = batch["knowledge"]
-    #         batch_size = len(knowledge_batch)
-    #         x_batch = batch["input"]
-    #         x_batch = [prompt_template.format(x) for x in x_batch]
-    #         knowledge_prompt = "Here is the instruction of this task: given the input list, the output list is {}\n"
-    #         knowledge_prompt_batch = [knowledge_prompt.format(k) for k in knowledge_batch]
-    #         x_batch_prompt = [knowledge_prompt_batch[i] + x_batch[i] for i in range(batch_size)]
-    #         y_batch = batch["target"]
-    #         results = []
-    #         for i in range(batch_size):
-    #             x_id = nesy.llm.tokenizer(x_batch_prompt[i], return_tensors="pt").input_ids.to(nesy.args.task_device)
-                
-    #             if method == "prompting":
-    #                 new_task_parameters = None
-    #             if method == "finetuning-all":
-    #                 new_task_parameters = nesy.llm.allocate(params[0])
-    #             if method == "finetuning-each":
-    #                 new_task_parameters = nesy.llm.allocate(all_params[all_knowledge.index(knowledge_batch[i])])
-                
-    #             y_pred = nesy.llm.predict_task(x_id, new_task_parameters)
-    #             results.append({
-    #                 "knowledge": knowledge_batch[i],
-    #                 "x": x_batch_prompt[i],
-    #                 "y_true": y_batch[i],
-    #                 "y_pred": y_pred,
-    #                 "score": evaluater(y_pred, y_batch[i])
-    #                 })
-    #         for result in results:
-    #             log.writelines(f"{json.dumps(result, indent=4)}\n")
-    #             num_correct_neural += result["score"]
-    #             num_test_neural += 1
-    #             log.flush()
+    with torch.no_grad():
 
-    # accuracy = num_correct_neural / num_test_neural
-    # log.writelines(f"neural unseen task accuracy of method {method}: {accuracy} \n")
-    # log.flush()
+        for batch in unseen_task_test_data_loader:
+            knowledge_batch = batch["knowledge"]
+            batch_size = len(knowledge_batch)
+            x_batch = batch["input"]
+            x_batch = [prompt_template.format(x) for x in x_batch]
+            input_batch = [knowledge_prompt.format(knowledge_batch[i], x_batch[i]) for i in range(batch_size)]
+            y_batch = batch["target"]
+
+            input_ids = nesy.llm.tokenizer(input_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
+            
+            if method == "prompting":
+                y_pred = nesy.llm.predict_task(input_ids)
+            elif method == "finetuning":
+                if args.fuse_method == "delta":
+                    new_task_parameters = nesy.llm.allocate(params)
+                    y_pred = nesy.llm.predict_task(input_ids, new_task_parameters)
+                elif args.fuse_method == "p-tuning":
+                    expanded_params = params.repeat_interleave(len(input_batch), dim=0)
+                    y_pred = nesy.llm.predict_task(input_ids, expanded_params)
+
+            y_pred = [y.split("\n")[0] for y in y_pred]
+
+            results = [{
+                "knowledge": knowledge_batch[i],
+                "x": x_batch[i],
+                "y_true": y_batch[i],
+                "y_pred": y_pred[i],
+                "score": evaluater(y_pred[i], y_batch[i])
+                } for i in range(len(x_batch))]
+
+            for result in results:
+                log.writelines(f"{json.dumps(result, indent=4)}\n")
+                num_correct_neural += result["score"]
+                num_test_neural += 1
+                log.flush()
+
+    accuracy = num_correct_neural / num_test_neural
+    log.writelines(f"neural unseen task accuracy of method {method}: {accuracy} \n")
+    log.flush()
 
 def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, evaluater, log, method):
 
@@ -503,14 +422,16 @@ So my instruction is:
             seen_subtask_train_data = [data for data in seen_train_data if data["sub_task_id"] == task_id]
             seen_subtask_test_data = [data for data in seen_test_data if data["sub_task_id"] == task_id]
             knowledge = seen_subtask_train_data[0]["knowledge"]
-            io_sample_train = random.sample(seen_subtask_train_data, 5)
-            io_text_train = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in io_sample_train])
+
+            for _ in range(10):
+                io_sample_train = random.sample(seen_subtask_train_data, 5)
+                io_text_train = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in io_sample_train])
+                seen_train_data_induction.append({
+                    "knowledge": knowledge,
+                    "io_text": io_text_train
+                    })
             io_sample_test = random.sample(seen_subtask_test_data, 5)
             io_text_test = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in io_sample_test])
-            seen_train_data_induction.append({
-                "knowledge": knowledge,
-                "io_text": io_text_train
-                })
             seen_test_data_induction.append({
                 "knowledge": knowledge,
                 "io_text": io_text_test
@@ -575,7 +496,16 @@ So my instruction is:
             induction_questions = prompt.format(obeserved_text)
             
             input_ids = nesy.llm.tokenizer(induction_questions, return_tensors="pt").input_ids.to(nesy.args.task_device)
-            predicted_knowledge = nesy.llm.predict_task(input_ids)
+
+            if method == "prompting":
+                predicted_knowledge = nesy.llm.predict_task(input_ids)
+            elif method == "finetuning":
+                if args.fuse_method == "delta":
+                    new_task_parameters = nesy.llm.allocate(params)
+                    predicted_knowledge = nesy.llm.predict_task(input_ids, new_task_parameters)
+                elif args.fuse_method == "p-tuning":
+                    expanded_params = params.repeat_interleave(input_ids.shape[0], dim=0)
+                    predicted_knowledge = nesy.llm.predict_task(input_ids, expanded_params)
 
             #predicted_knowledge = predicted_knowledge[0].split("\n")[0]
 
@@ -589,7 +519,53 @@ So my instruction is:
     accuracy = num_correct_symbolic / num_test_symbolic
     log.writelines(f"symbolic seen task accuracy of method {method}: {accuracy} \n")
     log.flush()
-    
+
+
+    unseen_test_data = unseen_test_data_loader.dataset
+    unseen_tasks_ids = list(set([sample["sub_task_id"] for sample in unseen_test_data]))
+
+    num_correct_symbolic = 0
+    num_test_symbolic = 0
+
+    for task_id in unseen_tasks_ids:
+
+        unseen_subtask_data = [data for data in unseen_test_data if data["sub_task_id"] == task_id]
+        knowledge = unseen_subtask_data[0]["knowledge"]
+
+        # start testing symbolic task
+        with torch.no_grad():
+            
+            obeserved_samples = random.sample(unseen_subtask_data, 5)
+
+            obeserved_text = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in obeserved_samples])
+            induction_questions = prompt.format(obeserved_text)
+            
+            input_ids = nesy.llm.tokenizer(induction_questions, return_tensors="pt").input_ids.to(nesy.args.task_device)
+
+            if method == "prompting":
+                predicted_knowledge = nesy.llm.predict_task(input_ids)
+            elif method == "finetuning":
+                if args.fuse_method == "delta":
+                    new_task_parameters = nesy.llm.allocate(params)
+                    predicted_knowledge = nesy.llm.predict_task(input_ids, new_task_parameters)
+                elif args.fuse_method == "p-tuning":
+                    expanded_params = params.repeat_interleave(input_ids.shape[0], dim=0)
+                    predicted_knowledge = nesy.llm.predict_task(input_ids, expanded_params)
+
+            #predicted_knowledge = predicted_knowledge[0].split("\n")[0]
+
+            result = nesy.eval_knowledge(knowledge, predicted_knowledge, evaluater)
+
+            log.writelines(f"{json.dumps(result, indent=4)}\n")
+            num_correct_symbolic += result["score"]
+            num_test_symbolic += 1
+            log.flush()
+
+    accuracy = num_correct_symbolic / num_test_symbolic
+    log.writelines(f"symbolic unseen task accuracy of method {method}: {accuracy} \n")
+    log.flush()
+
+
 def main(args):
 
     if args.exp_name is None:
@@ -683,13 +659,13 @@ def main(args):
             
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=10)
         train_log = open(f"{args.exp_dir}/train.log", file_mode)
-        try:
-            shutil.copy2(f"{args.meta_exp_dir}/epoch0validation/neural2symbolic.log", f"{args.exp_dir}/neural2symbolic.log")
-            shutil.copy2(f"{args.meta_exp_dir}/epoch0validation/symbolic2neural.log", f"{args.exp_dir}/symbolic2neural.log")
-        except:
-            pass
-        neural2symbolic_valid_log = open(f"{args.exp_dir}/neural2symbolic.log", file_mode)
-        symbolic2neural_valid_log = open(f"{args.exp_dir}/symbolic2neural.log", file_mode)
+        # try:
+        #     shutil.copy2(f"{args.meta_exp_dir}/epoch0validation/neural2symbolic.log", f"{args.exp_dir}/neural2symbolic.log")
+        #     shutil.copy2(f"{args.meta_exp_dir}/epoch0validation/symbolic2neural.log", f"{args.exp_dir}/symbolic2neural.log")
+        # except:
+        #     pass
+        # neural2symbolic_valid_log = open(f"{args.exp_dir}/neural2symbolic.log", file_mode)
+        # symbolic2neural_valid_log = open(f"{args.exp_dir}/symbolic2neural.log", file_mode)
         
         train_data_loader = seen_train_data_loader if not args.pretraining else train_data_loader
 
@@ -698,25 +674,26 @@ def main(args):
             if epoch % args.valid_epoch == 0 and epoch > 0:
 
                 nesy.save(f"{args.exp_dir}/epoch{epoch}/nesy_ckpt/")
+                neural2symbolic_valid_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
+                symbolic2neural_valid_log = open(f"{args.exp_dir}/epoch{epoch}/symbolic2neural.log", file_mode)
 
                 if args.pretraining:
 
                     valid_neural2symbolic(args, epoch, data["seen_tasks"]["train"], data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="seen task")
-                    #valid_neural2symbolic(args, epoch, data["unseen_tasks"]["train"], data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="unseen task")
+                    valid_neural2symbolic(args, epoch, data["unseen_tasks"]["train"], data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="unseen task")
 
                     valid_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="seen task test")
-                    #valid_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="unseen task test")
+                    valid_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="unseen task test")
 
                 else:
 
                     valid_neural2symbolic(args, epoch, data["seen_tasks"]["train"], data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="seen task")
-                    #valid_neural2symbolic(args, epoch, data["unseen_tasks"]["train"], data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="unseen task")
+                    valid_neural2symbolic(args, epoch, data["unseen_tasks"]["train"], data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="unseen task")
 
                     valid_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="seen task test")
-                    #valid_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="unseen task test")
+                    valid_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="unseen task test")
                 
             #return 0
-
 
             for i, batch in tqdm(enumerate(train_data_loader), desc=f"epoch {epoch}"):
 
@@ -789,21 +766,22 @@ def main(args):
     else:
         symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
         test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
-        #neural_task_test_log = open(f"{args.exp_dir}/neural_task.log", "w")
-        #test_neural_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, neural_task_test_log, method=args.method)
+        neural_task_test_log = open(f"{args.exp_dir}/neural_task.log", "w")
+        test_neural_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, neural_task_test_log, method=args.method)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="list_functions", help='name of dataset.')
-    parser.add_argument('--meta_exp_dir', type=str, default="./exp_baseline", help='name of dataset.')
+    parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
+    parser.add_argument('--meta_exp_dir', type=str, default="./exp_new", help='name of dataset.')
     parser.add_argument('--exp_name', type=str, default="debug", help='name of dataset.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
-    parser.add_argument('--method', type=str, default="finetuning", help='name of dataset.')
+    parser.add_argument('--method', type=str, default="nesy", help='name of dataset.')
     parser.add_argument('--prior', type=str, default="gaussian", help='name of dataset.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='name of dataset.')
+    parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='input batchsize.')
 
     parser.add_argument('--ebm_optim_method', type=str, default="entropy", help='name of dataset.')
     #parser.add_argument('--ebm_optim_method', type=str, default="nce", help='name of dataset.')
@@ -820,7 +798,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=100, help='input batchsize.')
     parser.add_argument('--valid_epoch', type=int, default=10, help='input batchsize.')
     
-    parser.add_argument('--task_finetune_step', type=int, default=1000, help='input batchsize.')
+    parser.add_argument('--task_finetune_step', type=int, default=100, help='input batchsize.')
     parser.add_argument('--task_finetune_lr', type=float, default=1e-2, help='input batchsize.')
     parser.add_argument('--zero_init', action="store_true", default=False, help='input batchsize.')
 
@@ -834,9 +812,9 @@ if __name__ == '__main__':
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
     parser.add_argument('--num_soft_token', type=int, default=2, help='max number of tokens to generate.')
     
-    #parser.add_argument('--load_exp', type=str, default="gmvae-list-10peak-entropy-4", help='name of dataset.')
+    #parser.add_argument('--load_exp', type=str, default="vae-sni-pretrain", help='name of dataset.')
     parser.add_argument('--load_exp', type=str, default=None, help='name of dataset.')
-    parser.add_argument('--load_epoch', type=int, default=20, help='input batchsize.')
+    parser.add_argument('--load_epoch', type=int, default=14, help='input batchsize.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether show results')
     parser.add_argument('--results_name', type=str, default=None, help='keywords must include in results')
     parser.add_argument('--model_name_or_path', type=str, default="/netcache/huggingface/llama-2-7b-chat-hf", help='Tasks for instructions generation')
@@ -856,7 +834,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_words', type=int, default=32)
     parser.add_argument('--unseen_task_ratio', type=float, default=0.1)
     parser.add_argument('--test_sample_num', type=int, default=5)
-    parser.add_argument('--num_pertask', type=int, default=1000)
+    parser.add_argument('--num_pertask', type=int, default=27)
     parser.add_argument('--task_fields', type=str, default=None)
 
 
