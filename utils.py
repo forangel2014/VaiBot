@@ -412,6 +412,8 @@ transformation B: {knowledge_pred}
 
 def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True, save=False):
 
+    mkdir("./data/pretrain")
+
     all_samples = []
 
     print("loading: manythings-translations-alpaca")

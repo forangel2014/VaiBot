@@ -34,7 +34,7 @@ class WrappedLLM(nn.Module):
         
         if args.use_trainable_task_model:
             self.task_config = LoraConfig(
-                r=args.lora_r,
+                r=args.lora_r // 128,
                 lora_alpha=args.lora_alpha,
                 target_modules=args.target_modules.split(","),
                 fan_in_fan_out=False,
@@ -84,7 +84,7 @@ class WrappedLLM(nn.Module):
                                                             #load_in_4bit=True
                                                             )
             self.decoder_config = LoraConfig(
-                r=args.lora_r,
+                r=args.lora_r // 128,
                 lora_alpha=args.lora_alpha,
                 target_modules=args.target_modules.split(","),
                 fan_in_fan_out=False,

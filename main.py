@@ -1,7 +1,7 @@
 import os
 import time
 import shutil
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
 import argparse
 import random
 import json
@@ -671,7 +671,7 @@ def main(args):
 
         for epoch in range(start_epoch, args.num_epochs):
 
-            if epoch % args.valid_epoch == 0: #and epoch > 0:
+            if epoch % args.valid_epoch == 0 and epoch > 0:
 
                 nesy.save(f"{args.exp_dir}/epoch{epoch}/nesy_ckpt/")
                 neural2symbolic_valid_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
@@ -782,7 +782,7 @@ if __name__ == '__main__':
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='name of dataset.')
     parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='input batchsize.')
-    parser.add_argument('--use_trainable_task_model', action="store_true", default=True, help='input batchsize.')
+    parser.add_argument('--use_trainable_task_model', action="store_true", default=False, help='input batchsize.')
 
 
     parser.add_argument('--ebm_optim_method', type=str, default="entropy", help='name of dataset.')
