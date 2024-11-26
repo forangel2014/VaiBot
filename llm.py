@@ -32,9 +32,22 @@ class WrappedLLM(nn.Module):
                                                         #load_in_8bit=True
                                                         )
         
-        # self.ori_state_dict = self.task_model.state_dict()
-        for params in self.task_model.parameters():
-            params.requires_grad = False
+        if args.use_trainable_task_model:
+            self.task_config = LoraConfig(
+                r=args.lora_r,
+                lora_alpha=args.lora_alpha,
+                target_modules=args.target_modules.split(","),
+                fan_in_fan_out=False,
+                lora_dropout=0.05,
+                inference_mode=False,
+                bias="none",
+                task_type="CAUSAL_LM",
+            )
+            self.task_model = get_peft_model(self.task_model, self.task_config).to(self.args.task_device)
+            self.task_model.print_trainable_parameters()            
+        else:
+            for params in self.task_model.parameters():
+                params.requires_grad = False
 
         if "llama" in args.model_name_or_path.lower():
             self.tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
@@ -209,7 +222,7 @@ class WrappedLLM(nn.Module):
             
             input_ids = torch.cat((x_id, y_id), dim=1)
             inputs_embeds = self.task_model.model.embed_tokens(input_ids)
-            
+
             if self.args.ebm_optim_method == "mc":
                 soft_token_embedding = new_task_parameters.view(batch_size*self.args.num_latent_samples, self.args.num_soft_token, self.config.hidden_size)
             else:

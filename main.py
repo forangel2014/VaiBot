@@ -1,7 +1,7 @@
 import os
 import time
 import shutil
-#os.environ["CUDA_VISIBLE_DEVICES"] = "0,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
 import argparse
 import random
 import json
@@ -671,7 +671,7 @@ def main(args):
 
         for epoch in range(start_epoch, args.num_epochs):
 
-            if epoch % args.valid_epoch == 0 and epoch > 0:
+            if epoch % args.valid_epoch == 0: #and epoch > 0:
 
                 nesy.save(f"{args.exp_dir}/epoch{epoch}/nesy_ckpt/")
                 neural2symbolic_valid_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
@@ -775,13 +775,15 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
     parser.add_argument('--meta_exp_dir', type=str, default="./exp_new", help='name of dataset.')
     parser.add_argument('--exp_name', type=str, default="debug", help='name of dataset.')
-    parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
+    parser.add_argument('--pretraining', action="store_true", default=True, help='Whether to pretrain the model.')
 
     parser.add_argument('--method', type=str, default="nesy", help='name of dataset.')
     parser.add_argument('--prior', type=str, default="gaussian", help='name of dataset.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='name of dataset.')
     parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='input batchsize.')
+    parser.add_argument('--use_trainable_task_model', action="store_true", default=True, help='input batchsize.')
+
 
     parser.add_argument('--ebm_optim_method', type=str, default="entropy", help='name of dataset.')
     #parser.add_argument('--ebm_optim_method', type=str, default="nce", help='name of dataset.')
