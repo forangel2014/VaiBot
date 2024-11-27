@@ -6,6 +6,8 @@ cd ..
 
 CUDA_VISIBLE_DEVICES=0,1,2
 
+meta_exp_dir="exp"
+
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --cuda_devices) CUDA_VISIBLE_DEVICES="$2"; shift ;;
@@ -199,4 +201,6 @@ if [ -n "$target_modules" ]; then
     args="$args --target_modules $target_modules"
 fi
 
-eval "$python_cmd $args"
+mkdir -p ./$meta_exp_dir/$exp_name
+eval "$python_cmd $args" > ./$meta_exp_dir/$exp_name/terminal.txt 2>&1 &
+echo $! > ./$meta_exp_dir/$exp_name/pid.txt

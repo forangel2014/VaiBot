@@ -671,9 +671,11 @@ def main(args):
 
         for epoch in range(start_epoch, args.num_epochs):
 
+            if epoch % args.save_epoch == 0 and epoch > 0:
+                nesy.save(f"{args.exp_dir}/epoch{epoch}/nesy_ckpt/")
+
             if epoch % args.valid_epoch == 0 and epoch > 0:
 
-                nesy.save(f"{args.exp_dir}/epoch{epoch}/nesy_ckpt/")
                 neural2symbolic_valid_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
                 symbolic2neural_valid_log = open(f"{args.exp_dir}/epoch{epoch}/symbolic2neural.log", file_mode)
 
@@ -782,8 +784,7 @@ if __name__ == '__main__':
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='name of dataset.')
     parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='input batchsize.')
-    parser.add_argument('--use_trainable_task_model', action="store_true", default=False, help='input batchsize.')
-
+    parser.add_argument('--use_trainable_task_model', action="store_true", default=True, help='input batchsize.')
 
     parser.add_argument('--ebm_optim_method', type=str, default="entropy", help='name of dataset.')
     #parser.add_argument('--ebm_optim_method', type=str, default="nce", help='name of dataset.')
@@ -798,8 +799,9 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-4, help='input batchsize.')
     parser.add_argument('--episilon', type=float, default=1e-5, help='input batchsize.')
     parser.add_argument('--num_epochs', type=int, default=100, help='input batchsize.')
-    parser.add_argument('--valid_epoch', type=int, default=10, help='input batchsize.')
-    
+    parser.add_argument('--valid_epoch', type=int, default=5, help='input batchsize.')
+    parser.add_argument('--save_epoch', type=int, default=1, help='input batchsize.')
+
     parser.add_argument('--task_finetune_step', type=int, default=100, help='input batchsize.')
     parser.add_argument('--task_finetune_lr', type=float, default=1e-2, help='input batchsize.')
     parser.add_argument('--zero_init', action="store_true", default=False, help='input batchsize.')

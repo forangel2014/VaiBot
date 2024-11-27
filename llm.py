@@ -221,7 +221,10 @@ class WrappedLLM(nn.Module):
         elif self.args.fuse_method == "p-tuning":
             
             input_ids = torch.cat((x_id, y_id), dim=1)
-            inputs_embeds = self.task_model.model.embed_tokens(input_ids)
+            if self.args.use_trainable_task_model:
+                inputs_embeds = self.task_model.model.model.embed_tokens(input_ids)
+            else:
+                inputs_embeds = self.task_model.embed_tokens(input_ids)
 
             if self.args.ebm_optim_method == "mc":
                 soft_token_embedding = new_task_parameters.view(batch_size*self.args.num_latent_samples, self.args.num_soft_token, self.config.hidden_size)
@@ -269,7 +272,10 @@ class WrappedLLM(nn.Module):
             batch_size = x_id.size(0)
             if new_task_parameters is not None:
                 soft_token_embedding = new_task_parameters.view(batch_size, self.args.num_soft_token, self.config.hidden_size)
-                inputs_embeds = self.task_model.model.embed_tokens(x_id)
+                if self.args.use_trainable_task_model:
+                    inputs_embeds = self.task_model.model.model.embed_tokens(x_id)
+                else:
+                    inputs_embeds = self.task_model.model.embed_tokens(x_id)
                 total_embeds = torch.cat((soft_token_embedding, inputs_embeds), dim=1)
 
             else:
