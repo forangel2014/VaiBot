@@ -44,7 +44,8 @@ while [[ "$#" -gt 0 ]]; do
         --unseen_task_ratio) unseen_task_ratio="$2"; shift ;;
         --test_sample_num) test_sample_num="$2"; shift ;;
         --load_epoch) load_epoch="$2"; shift ;;
-        --lora_r) lora_r="$2"; shift ;;
+        --encoder_lora_r) encoder_lora_r="$2"; shift ;;
+        --decoder_lora_r) decoder_lora_r="$2"; shift ;;
         --lora_alpha) lora_alpha="$2"; shift ;;
         --target_modules) target_modules="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
@@ -190,7 +191,11 @@ if [ -n "$fuse_method" ]; then
 fi
 
 if [ -n "$lora_r" ]; then
-    args="$args --lora_r $lora_r"
+    args="$args --encoder_lora_r $encoder_lora_r"
+fi
+
+if [ -n "$decoder_lora_r" ]; then
+    args="$args --decoder_lora_r $decoder_lora_r"
 fi
 
 if [ -n "$lora_alpha" ]; then

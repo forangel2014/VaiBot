@@ -24,25 +24,14 @@ class Nesy(nn.Module):
                 nn.Linear(self.hidden_size, self.hidden_size),
                 nn.ReLU(),
                 nn.Linear(self.hidden_size, self.latent_size*2)
-            ).to(self.args.encoder_device)
+            ).to(self.args.flow_device)
             
             self.decoder_mlp = nn.Sequential(
                 nn.Linear(self.latent_size, self.hidden_size),
                 nn.ReLU(),
                 nn.Linear(self.hidden_size, self.hidden_size*self.args.num_soft_token),
                 nn.Sigmoid()
-            ).to(self.args.decoder_device)
-            
-            # TODO 3D tensor 
-            # 匈牙利匹配，SINKHORN algorithm
-            # sampled latent [sample_num, hidden_dim]
-            # reference latent [group, hidden_dim]
-            # self.reference_trained_params = torch.nn.Parameter(torch.randn(size=[len(args.task_id2knowledge), self.args.latent_size], 
-            #                                             requires_grad=True,
-            #                                             device=self.args.task_device, 
-            #                                             dtype=torch.bfloat16))
-            
-            # self.reference_optimizer = torch.optim.Adam([self.reference_trained_params], lr=args.task_finetune_lr)
+            ).to(self.args.flow_device)
 
             if args.load_nesy_ckpt:
                 self.load(args.load_nesy_ckpt)
@@ -67,7 +56,7 @@ class Nesy(nn.Module):
         return mean, log_var
     
     def compute_recon_loss(self, latent, labels, instance=None):
-        embedding = self.decoder_mlp(latent)
+        embedding = self.decoder_mlp(latent).to(self.args.decoder_device)
         if self.args.use_instance_in_decoder:
             instance_embedding = self.llm.decoder_model.model.embed_tokens(instance)
             outputs = self.llm.decode(embedding, labels, instance_embedding)
@@ -167,7 +156,6 @@ class Nesy(nn.Module):
 
         sampled_latent = self.reparameterize(mean, log_var)
 
-        sampled_latent = sampled_latent.to(self.args.decoder_device)
         knowledge_ids = knowledge_ids.to(self.args.decoder_device)
         
         if self.args.use_instance_in_decoder:

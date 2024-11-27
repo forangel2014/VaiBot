@@ -25,7 +25,7 @@ class WrappedLLM(nn.Module):
         self.dtype = torch.bfloat16
 
         self.task_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
-                                                        device_map=self.args.task_device,#"auto",
+                                                        device_map="auto",
                                                         torch_dtype=self.dtype, 
                                                         trust_remote_code=True,
                                                         #torch_dtype=torch.float16, 
@@ -34,7 +34,7 @@ class WrappedLLM(nn.Module):
         
         if args.use_trainable_task_model:
             self.task_config = LoraConfig(
-                r=args.lora_r // 128,
+                r=args.decoder_lora_r,
                 lora_alpha=args.lora_alpha,
                 target_modules=args.target_modules.split(","),
                 fan_in_fan_out=False,
@@ -43,7 +43,7 @@ class WrappedLLM(nn.Module):
                 bias="none",
                 task_type="CAUSAL_LM",
             )
-            self.task_model = get_peft_model(self.task_model, self.task_config).to(self.args.task_device)
+            self.task_model = get_peft_model(self.task_model, self.task_config)#.to(self.args.task_device)
             self.task_model.print_trainable_parameters()            
         else:
             for params in self.task_model.parameters():
@@ -59,14 +59,14 @@ class WrappedLLM(nn.Module):
 
         if args.method == "nesy":
             self.encoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
-                                                            device_map=self.args.encoder_device,#"auto",
+                                                            device_map="auto",
                                                             torch_dtype=self.dtype, 
                                                             trust_remote_code=True,
                                                             #torch_dtype=torch.float16, 
                                                             #load_in_4bit=True
                                                             )
             self.encoder_config = LoraConfig(
-                r=args.lora_r,
+                r=args.encoder_lora_r,
                 lora_alpha=args.lora_alpha,
                 target_modules=args.target_modules.split(","),
                 fan_in_fan_out=False,
@@ -77,14 +77,14 @@ class WrappedLLM(nn.Module):
             )
             
             self.decoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
-                                                            device_map=self.args.decoder_device,#"auto",
+                                                            device_map="auto",
                                                             torch_dtype=self.dtype,
                                                             trust_remote_code=True,
                                                             #torch_dtype=torch.float16, 
                                                             #load_in_4bit=True
                                                             )
             self.decoder_config = LoraConfig(
-                r=args.lora_r // 128,
+                r=args.decoder_lora_r,
                 lora_alpha=args.lora_alpha,
                 target_modules=args.target_modules.split(","),
                 fan_in_fan_out=False,
@@ -98,9 +98,9 @@ class WrappedLLM(nn.Module):
                 self.load(args.load_nesy_ckpt)
                 
             else:
-                self.encoder = get_peft_model(self.encoder_model.model, self.encoder_config).to(self.args.encoder_device)
+                self.encoder = get_peft_model(self.encoder_model.model, self.encoder_config)
                 self.encoder.print_trainable_parameters()
-                self.decoder = get_peft_model(self.decoder_model, self.decoder_config).to(self.args.decoder_device)
+                self.decoder = get_peft_model(self.decoder_model, self.decoder_config)
                 self.decoder.print_trainable_parameters()
                 self.param_info = self.specify_parameter(n=args.latent_size)
         

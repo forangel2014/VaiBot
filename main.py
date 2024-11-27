@@ -1,7 +1,7 @@
 import os
 import time
 import shutil
-#os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,8,9"
 import argparse
 import random
 import json
@@ -777,7 +777,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
     parser.add_argument('--meta_exp_dir', type=str, default="./exp_new", help='name of dataset.')
     parser.add_argument('--exp_name', type=str, default="debug", help='name of dataset.')
-    parser.add_argument('--pretraining', action="store_true", default=True, help='Whether to pretrain the model.')
+    parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
     parser.add_argument('--method', type=str, default="nesy", help='name of dataset.')
     parser.add_argument('--prior', type=str, default="gaussian", help='name of dataset.')
@@ -825,13 +825,14 @@ if __name__ == '__main__':
     parser.add_argument('--finetuned_model', type=str, default=None, help='finetuned model path')
     
     parser.add_argument('--encoder_device', type=int, default=0, help='device to use')
-    parser.add_argument('--decoder_device', type=int, default=2, help='device to use')
-    parser.add_argument('--task_device', type=int, default=1, help='device to use')
+    parser.add_argument('--decoder_device', type=int, default=0, help='device to use')
+    parser.add_argument('--task_device', type=int, default=0, help='device to use')
     parser.add_argument('--flow_device', type=int, default=2, help='device to use')
     parser.add_argument('--noise_device', type=int, default=4, help='device to use')
     parser.add_argument('--backward_device', type=int, default=0, help='device to use')
     
-    parser.add_argument('--lora_r', type=int, default=16)
+    parser.add_argument('--encoder_lora_r', type=int, default=16)
+    parser.add_argument('--decoder_lora_r', type=int, default=1)
     parser.add_argument('--lora_alpha', type=int, default=32)
     parser.add_argument('--target_modules', type=str, default="q_proj,k_proj,v_proj,o_proj,down_proj,gate_proj,up_proj", help='keywords must include in results')
         
