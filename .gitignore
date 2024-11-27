@@ -3,6 +3,7 @@
 __pycache__
 exp*/
 *.log
+*.out
 finetune/
 train_rule/
 salad*/
