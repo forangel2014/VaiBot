@@ -1,7 +1,7 @@
 import os
 import time
 import shutil
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,8,9"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 import argparse
 import random
 import json
@@ -60,7 +60,7 @@ def train_subtask(args, nesy, subtask_train_data_loader, subtask_test_data_loade
 
 def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_test_data_loader, prompt_template, subtask_test_data):
 
-    x_id = nesy.llm.tokenizer("I do not know anything.", return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
+    x_id = nesy.llm.tokenizer("Follow the instruction and answer the question: I do not know anything.", return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
     input_embeds = torch.nn.Parameter(nesy.llm.encoder_model.model.embed_tokens(x_id))#.repeat(embedding.shape[0], 1, 1)
 
     optimizer = torch.optim.Adam([input_embeds], lr=args.task_finetune_lr)
@@ -775,16 +775,16 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
-    parser.add_argument('--meta_exp_dir', type=str, default="./exp_new", help='name of dataset.')
+    parser.add_argument('--meta_exp_dir', type=str, default="./exp", help='name of dataset.')
     parser.add_argument('--exp_name', type=str, default="debug", help='name of dataset.')
-    parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
+    parser.add_argument('--pretraining', action="store_true", default=True, help='Whether to pretrain the model.')
 
     parser.add_argument('--method', type=str, default="nesy", help='name of dataset.')
     parser.add_argument('--prior', type=str, default="gaussian", help='name of dataset.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='name of dataset.')
     parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='input batchsize.')
-    parser.add_argument('--use_trainable_task_model', action="store_true", default=True, help='input batchsize.')
+    parser.add_argument('--use_trainable_task_model', action="store_true", default=False, help='input batchsize.')
 
     parser.add_argument('--ebm_optim_method', type=str, default="entropy", help='name of dataset.')
     #parser.add_argument('--ebm_optim_method', type=str, default="nce", help='name of dataset.')
@@ -816,17 +816,19 @@ if __name__ == '__main__':
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
     parser.add_argument('--num_soft_token', type=int, default=2, help='max number of tokens to generate.')
     
-    #parser.add_argument('--load_exp', type=str, default="vae-sni-pretrain", help='name of dataset.')
+    #parser.add_argument('--load_exp', type=str, default="vae-pretrain-small-decoder", help='name of dataset.')
     parser.add_argument('--load_exp', type=str, default=None, help='name of dataset.')
-    parser.add_argument('--load_epoch', type=int, default=14, help='input batchsize.')
+    parser.add_argument('--load_epoch', type=int, default=5, help='input batchsize.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether show results')
     parser.add_argument('--results_name', type=str, default=None, help='keywords must include in results')
-    parser.add_argument('--model_name_or_path', type=str, default="/netcache/huggingface/llama-2-7b-chat-hf", help='Tasks for instructions generation')
+    #parser.add_argument('--model_name_or_path', type=str, default="/netcache/huggingface/llama-2-7b-chat-hf", help='Tasks for instructions generation')
+    parser.add_argument('--model_name_or_path', type=str, default="/mnt/workspace/user/chenhao/pretrained_models/Llama-2-7b-chat-hf", help='Tasks for instructions generation')
     parser.add_argument('--finetuned_model', type=str, default=None, help='finetuned model path')
     
+    parser.add_argument('--cuda_devices', type=str, default="3,4,5", help='device to use')
     parser.add_argument('--encoder_device', type=int, default=0, help='device to use')
-    parser.add_argument('--decoder_device', type=int, default=0, help='device to use')
-    parser.add_argument('--task_device', type=int, default=0, help='device to use')
+    parser.add_argument('--decoder_device', type=int, default=1, help='device to use')
+    parser.add_argument('--task_device', type=int, default=2, help='device to use')
     parser.add_argument('--flow_device', type=int, default=2, help='device to use')
     parser.add_argument('--noise_device', type=int, default=4, help='device to use')
     parser.add_argument('--backward_device', type=int, default=0, help='device to use')
@@ -842,6 +844,6 @@ if __name__ == '__main__':
     parser.add_argument('--num_pertask', type=int, default=27)
     parser.add_argument('--task_fields', type=str, default=None)
 
-
     args = parser.parse_args()
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda_devices
     main(args)

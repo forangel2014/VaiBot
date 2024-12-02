@@ -4,13 +4,11 @@ cd patch
 bash install.sh
 cd ..
 
-CUDA_VISIBLE_DEVICES=0,1,2
-
 meta_exp_dir="exp"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --cuda_devices) CUDA_VISIBLE_DEVICES="$2"; shift ;;
+        --cuda_devices) cuda_devices="$2"; shift ;;
         --dataset) dataset="$2"; shift ;;
         --model_name_or_path) model_name_or_path="$2"; shift ;;
         --meta_exp_dir) meta_exp_dir="$2"; shift ;;
@@ -20,6 +18,7 @@ while [[ "$#" -gt 0 ]]; do
         --method) method="$2"; shift ;;
         --num_peak) num_peak="$2"; shift ;;
         --valid_epoch) valid_epoch="$2"; shift ;;
+        --save_epoch) save_epoch="$2"; shift ;;
         --fuse_method) fuse_method="$2"; shift ;;
         --ebm_optim_method) ebm_optim_method="$2"; shift ;;
         --prior) prior="$2"; shift ;;
@@ -53,13 +52,15 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-export CUDA_VISIBLE_DEVICES
-
 python_cmd="python main.py"
 args=""
 
 if [ -n "$model_name_or_path" ]; then
     args="$args --model_name_or_path $model_name_or_path"
+fi
+
+if [ -n "$cuda_devices" ]; then
+    args="$args --cuda_devices $cuda_devices"
 fi
 
 if [ -n "$dataset" ]; then
@@ -100,6 +101,10 @@ fi
 
 if [ -n "$valid_epoch" ]; then
     args="$args --valid_epoch $valid_epoch"
+fi
+
+if [ -n "$save_epoch" ]; then
+    args="$args --save_epoch $save_epoch"
 fi
 
 if [ -n "$prior" ]; then
@@ -208,4 +213,4 @@ fi
 
 mkdir -p ./$meta_exp_dir/$exp_name
 eval "$python_cmd $args" > ./$meta_exp_dir/$exp_name/terminal.txt 2>&1 &
-echo $! > ./$meta_exp_dir/$exp_name/pid.txt
+#echo $! > ./$meta_exp_dir/$exp_name/pid.txt

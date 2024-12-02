@@ -25,7 +25,7 @@ class WrappedLLM(nn.Module):
         self.dtype = torch.bfloat16
 
         self.task_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
-                                                        device_map="auto",
+                                                        device_map=args.task_device,#"auto",
                                                         torch_dtype=self.dtype, 
                                                         trust_remote_code=True,
                                                         #torch_dtype=torch.float16, 
@@ -59,7 +59,7 @@ class WrappedLLM(nn.Module):
 
         if args.method == "nesy":
             self.encoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
-                                                            device_map="auto",
+                                                            device_map=args.encoder_device,#"auto",
                                                             torch_dtype=self.dtype, 
                                                             trust_remote_code=True,
                                                             #torch_dtype=torch.float16, 
@@ -77,7 +77,7 @@ class WrappedLLM(nn.Module):
             )
             
             self.decoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
-                                                            device_map="auto",
+                                                            device_map=args.decoder_device,#"auto",
                                                             torch_dtype=self.dtype,
                                                             trust_remote_code=True,
                                                             #torch_dtype=torch.float16, 
@@ -224,7 +224,7 @@ class WrappedLLM(nn.Module):
             if self.args.use_trainable_task_model:
                 inputs_embeds = self.task_model.model.model.embed_tokens(input_ids)
             else:
-                inputs_embeds = self.task_model.embed_tokens(input_ids)
+                inputs_embeds = self.task_model.model.embed_tokens(input_ids)
 
             if self.args.ebm_optim_method == "mc":
                 soft_token_embedding = new_task_parameters.view(batch_size*self.args.num_latent_samples, self.args.num_soft_token, self.config.hidden_size)
