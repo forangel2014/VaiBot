@@ -161,7 +161,7 @@ class Nesy(nn.Module):
         
         if self.args.use_instance_in_decoder:
             instance = (x_batch, y_batch)
-            instance_text = [f"x: {x}, y: {y}" for x, y in zip(*instance)]
+            instance_text = [f"x: {x}, y: {y}. This task is to:" for x, y in zip(*instance)]
             instance_ids = self.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.decoder_device)
         else:
             instance_ids = None
