@@ -227,7 +227,7 @@ def valid_neural2symbolic(args, epoch, train_data, test_data, nesy, prompt_templ
                     batch = random.choice(subtask_train_data_loader.dataset)
                     x = batch["input"]
                     y = batch["target"]
-                    instance_text = f"x: {x}, y: {y}. This task is to:"
+                    instance_text = f"input: {x}, target: {y}. This task is to:"
                     print(instance_text)
                     instance_ids = nesy.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.decoder_device)
                 else:
@@ -584,7 +584,7 @@ def main(args):
         for key in loaded_args:
             if key not in ["exp_dir", "load_exp", "load_epoch", "encoder_device", "decoder_device", "task_device", 
                            "flow_device", "noise_device", "task_finetune_step", "task_finetune_lr", "batch_size",
-                           "zero_init", "dataset", "pretraining"]:
+                           "zero_init", "dataset", "pretraining", "valid_epoch", "save_epoch"]:
                 args.__dict__[key] = loaded_args[key]
         args.load_nesy_ckpt = f"{args.load_exp}/epoch{args.load_epoch}/nesy_ckpt/"
         start_epoch = args.load_epoch
@@ -679,21 +679,11 @@ def main(args):
                 neural2symbolic_valid_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
                 symbolic2neural_valid_log = open(f"{args.exp_dir}/epoch{epoch}/symbolic2neural.log", file_mode)
 
-                if args.pretraining:
+                #valid_neural2symbolic(args, epoch, data["seen_tasks"]["train"], data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="seen task")
+                #valid_neural2symbolic(args, epoch, data["unseen_tasks"]["train"], data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="unseen task")
 
-                    valid_neural2symbolic(args, epoch, data["seen_tasks"]["train"], data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="seen task")
-                    valid_neural2symbolic(args, epoch, data["unseen_tasks"]["train"], data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="unseen task")
-
-                    valid_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="seen task test")
-                    valid_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="unseen task test")
-
-                else:
-
-                    valid_neural2symbolic(args, epoch, data["seen_tasks"]["train"], data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="seen task")
-                    valid_neural2symbolic(args, epoch, data["unseen_tasks"]["train"], data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="unseen task")
-
-                    valid_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="seen task test")
-                    valid_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="unseen task test")
+                valid_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="seen task test")
+                valid_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="unseen task test")
                 
             #return 0
 
@@ -775,7 +765,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
-    parser.add_argument('--meta_exp_dir', type=str, default="./exp", help='the directory to save all the experiment results.')
+    parser.add_argument('--meta_exp_dir', type=str, default="./exp_new", help='the directory to save all the experiment results.')
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=True, help='Whether to pretrain the model.')
 

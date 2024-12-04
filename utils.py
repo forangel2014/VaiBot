@@ -361,6 +361,7 @@ transformation B: {knowledge_pred}
                 })
         
             if sub_task_id == 1:
+                
                 def symbolic_evaluater(knowledge_pred, knowledge_true):
                     messages = [
                         {
@@ -435,7 +436,6 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
     if save:
         json.dump(dataset_samples, open("./data/pretrain/manythings-translations-alpaca.json", "w"))
 
-    """
     path = "MBZUAI/LaMini-instruction"
     if load_from_local:
         dataset_samples = json.load(open("./data/pretrain/LaMini-instruction.json"))
@@ -528,7 +528,6 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
     all_samples.extend(dataset_samples) 
     if save:
         json.dump(dataset_samples, open("./data/pretrain/self-instruct.json", "w"))
-    """
 
     # print("loading: sail")
     # path = "sail/symbolic-instruction-tuning"

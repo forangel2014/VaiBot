@@ -15,6 +15,8 @@ while [[ "$#" -gt 0 ]]; do
         --exp_name) exp_name="$2"; shift ;;
         --lr) lr="$2"; shift ;;
         --pretraining) pretraining="$2"; shift ;;
+        --use_instance_in_decoder) use_instance_in_decoder="$2"; shift ;;
+        --use_trainable_task_model) use_trainable_task_model="$2"; shift ;;
         --method) method="$2"; shift ;;
         --num_peak) num_peak="$2"; shift ;;
         --valid_epoch) valid_epoch="$2"; shift ;;
@@ -73,6 +75,14 @@ fi
 
 if [ "$pretraining" = "True" ] || [ "$pretraining" = "true" ]; then
     args="$args --pretraining"
+fi
+
+if [ "$use_instance_in_decoder" = "True" ] || [ "$use_instance_in_decoder" = "true" ]; then
+    args="$args --use_instance_in_decoder"
+fi
+
+if [ "$use_trainable_task_model" = "True" ] || [ "$use_trainable_task_model" = "true" ]; then
+    args="$args --use_trainable_task_model"
 fi
 
 if [ -n "$num_peak" ]; then
@@ -212,5 +222,5 @@ if [ -n "$target_modules" ]; then
 fi
 
 mkdir -p ./$meta_exp_dir/$exp_name
-eval "$python_cmd $args" > ./$meta_exp_dir/$exp_name/terminal.txt 2>&1 &
+eval "$python_cmd $args" > ./$meta_exp_dir/$exp_name/terminal.txt 2>&1
 #echo $! > ./$meta_exp_dir/$exp_name/pid.txt
