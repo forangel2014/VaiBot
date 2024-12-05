@@ -208,21 +208,23 @@ def valid_neural2symbolic(args, epoch, train_data, test_data, nesy, prompt_templ
         knowledge_ids = nesy.llm.tokenizer(knowledge, return_tensors="pt").input_ids.to(nesy.args.encoder_device)
         #encoded_latent = [nesy.reparameterize(*nesy.encode(knowledge_ids)) for i in range(num_samples)]
         #randomn_latent = [torch.randn([1, nesy.args.latent_size]) for i in range(num_samples)]
-        trained_latent = []
+        trained_latents = []
     
         for i in range(num_samples):
             
             trained_params, test_loss_ls = train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_test_data_loader, prompt_template, subtask_test_data)
 
-            trained_latent.append(trained_params)
-
             with torch.no_grad():
 
                 if args.method == "vaeflow":
-                    trained_params = trained_params.to(nesy.args.flow_device)
-                    trained_params = nesy.flow_backward(trained_params).to(nesy.args.decoder_device)
+                    trained_latent = trained_params.to(nesy.args.flow_device)
+                    trained_latent = nesy.flow_backward(trained_params).to(nesy.args.decoder_device)
                 else:
-                    trained_params = trained_params.to(nesy.args.decoder_device)
+                    if args.nf:
+                        trained_latent = nesy.flow_backward(trained_params.to(nesy.args.flow_device)).to(nesy.args.decoder_device)
+                    else:
+                        trained_latent = trained_params.to(nesy.args.decoder_device)
+
                 if nesy.args.use_instance_in_decoder:
                     batch = random.choice(subtask_train_data_loader.dataset)
                     x = batch["input"]
@@ -232,7 +234,8 @@ def valid_neural2symbolic(args, epoch, train_data, test_data, nesy, prompt_templ
                     instance_ids = nesy.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.decoder_device)
                 else:
                     instance_ids = None
-                predicted_knowledge = nesy.sample(trained_params, sample_from_guassian=False, instance=instance_ids)
+                    
+                predicted_knowledge = nesy.sample(trained_latent, sample_from_guassian=False, instance=instance_ids)
                 #encoded_params = encoded_latent[i].to(nesy.args.decoder_device)
                 #encode_decode_knowledge = nesy.sample(encoded_params, sample_from_guassian=False)
 
@@ -672,6 +675,7 @@ def main(args):
         for epoch in range(start_epoch, args.num_epochs):
 
             if epoch % args.save_epoch == 0 and epoch > 0:
+                
                 nesy.save(f"{args.exp_dir}/epoch{epoch}/nesy_ckpt/")
 
             if epoch % args.valid_epoch == 0 and epoch > 0:
@@ -679,8 +683,8 @@ def main(args):
                 neural2symbolic_valid_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
                 symbolic2neural_valid_log = open(f"{args.exp_dir}/epoch{epoch}/symbolic2neural.log", file_mode)
 
-                #valid_neural2symbolic(args, epoch, data["seen_tasks"]["train"], data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="seen task")
-                #valid_neural2symbolic(args, epoch, data["unseen_tasks"]["train"], data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="unseen task")
+                valid_neural2symbolic(args, epoch, data["seen_tasks"]["train"], data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="seen task")
+                valid_neural2symbolic(args, epoch, data["unseen_tasks"]["train"], data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_valid_log, name="unseen task")
 
                 valid_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="seen task test")
                 valid_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="unseen task test")
@@ -767,10 +771,11 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
     parser.add_argument('--meta_exp_dir', type=str, default="./exp_new", help='the directory to save all the experiment results.')
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
-    parser.add_argument('--pretraining', action="store_true", default=True, help='Whether to pretrain the model.')
+    parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
     parser.add_argument('--method', type=str, default="nesy", help='the method to train the model.')
     parser.add_argument('--prior', type=str, default="gaussian", help='the prior distribution of the model.')
+    parser.add_argument('--nf', action="store_true", default=False, help='Whether to use the flow model.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='the method to fuse the task model and the prior model.')
     parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='whether to use the instance in the decoder.')
@@ -819,7 +824,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_device', type=int, default=0, help='the device to use')
     parser.add_argument('--decoder_device', type=int, default=1, help='the device to use')
     parser.add_argument('--task_device', type=int, default=2, help='the device to use')
-    parser.add_argument('--flow_device', type=int, default=2, help='the device to use')
+    parser.add_argument('--flow_device', type=int, default=0, help='the device to use')
     parser.add_argument('--noise_device', type=int, default=4, help='device to use')
     parser.add_argument('--backward_device', type=int, default=0, help='device to use')
     

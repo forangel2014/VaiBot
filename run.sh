@@ -22,6 +22,7 @@ while [[ "$#" -gt 0 ]]; do
         --valid_epoch) valid_epoch="$2"; shift ;;
         --save_epoch) save_epoch="$2"; shift ;;
         --fuse_method) fuse_method="$2"; shift ;;
+        --nf) nf="$2"; shift ;;
         --ebm_optim_method) ebm_optim_method="$2"; shift ;;
         --prior) prior="$2"; shift ;;
         --alignment_loss_weight) alignment_loss_weight="$2"; shift ;;
@@ -119,6 +120,10 @@ fi
 
 if [ -n "$prior" ]; then
     args="$args --prior $prior"
+fi
+
+if [ "$nf" = "True" ] || [ "$nf" = "true" ]; then
+    args="$args --nf"
 fi
 
 if [ -n "$alignment_loss_weight" ]; then

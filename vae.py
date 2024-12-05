@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from llm import WrappedLLM
 from utils import mkdir
+import INN
 
 class Nesy(nn.Module):
     
@@ -36,6 +37,11 @@ class Nesy(nn.Module):
             if args.load_nesy_ckpt:
                 self.load(args.load_nesy_ckpt)
 
+            if args.nf:
+                self.flow_net = INN.Sequential(
+                    INN.Nonlinear(self.latent_size, method="RealNVP"),
+                ).to(self.args.flow_device)
+
     def save(self, dir):
         mkdir(dir)
         torch.save(self.encoder_mlp.state_dict(), os.path.join(dir, "encoder_mlp.pth"))
@@ -46,6 +52,20 @@ class Nesy(nn.Module):
         self.encoder_mlp.load_state_dict(torch.load(os.path.join(dir, "encoder_mlp.pth")))
         self.decoder_mlp.load_state_dict(torch.load(os.path.join(dir, "decoder_mlp.pth")))
         self.llm.load(dir)
+
+    def flow_forward(self, latent, return_all=False):
+        #params = latent
+        params, log_p, log_det_J = self.flow_net(latent.to(torch.float))
+        # params = params.to(torch.bfloat16)
+        # if return_all:
+        #     return params, log_p, log_det_J
+        # else:
+        return params
+    
+    def flow_backward(self, params):
+        #latent = params
+        latent = self.flow_net.inverse(params.to(torch.float)).to(torch.bfloat16)
+        return latent
 
     def encode(self, knowledge_ids):
         outputs = self.llm.encode(knowledge_ids)
@@ -167,8 +187,14 @@ class Nesy(nn.Module):
             instance_ids = None
         recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids, instance_ids)
 
-        sampled_latent = sampled_latent.to(self.args.task_device)
-        task_loss = self.compute_task_loss(sampled_latent, x_batch, y_batch)
+        if self.args.nf:
+            sampled_latent = sampled_latent.to(self.args.flow_device)
+            params = self.flow_forward(sampled_latent)
+            params = params.to(self.args.task_device)
+        else:
+            params = sampled_latent.to(self.args.task_device)
+        
+        task_loss = self.compute_task_loss(params, x_batch, y_batch)
 
         #alignment_loss = torch.mean(torch.norm(sampled_latent - reference_params.detach().to(self.args.task_device), dim=1)) #/ self.args.num_latent_samples
 
@@ -215,7 +241,10 @@ class Nesy(nn.Module):
             knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
             mean, log_var = self.encode(knowledge_ids)
             
-            params = self.reparameterize(mean, log_var).to(self.args.task_device)
+            if self.args.nf:
+                params = self.flow_forward(self.reparameterize(mean, log_var).to(self.args.flow_device)).to(self.args.task_device)
+            else:
+                params = self.reparameterize(mean, log_var).to(self.args.task_device)
             
             x_id = self.llm.tokenizer(x_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
             y_pred = self.llm.predict_task(x_id, params)
