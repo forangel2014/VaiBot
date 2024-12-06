@@ -122,7 +122,6 @@ class Nesy(nn.Module):
             for i in range(batch_size):
                 
                 new_task_parameters = self.llm.allocate(latent[i])
-                
                 x_id = self.llm.tokenizer(x_batch[i], return_tensors="pt", add_special_tokens=True).input_ids.to(self.args.task_device)
                 y_id = self.llm.tokenizer(y_batch[i], return_tensors="pt", add_special_tokens=True).input_ids.to(self.args.task_device)
 
@@ -137,7 +136,7 @@ class Nesy(nn.Module):
                 task_loss = torch.stack(task_loss, dim=0)
             
         elif self.args.fuse_method == "p-tuning":
-
+            
             x_id = self.llm.tokenizer(x_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
             y_id = self.llm.tokenizer(y_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
             
@@ -161,6 +160,9 @@ class Nesy(nn.Module):
     def forward(self, knowledge_batch, x_batch, y_batch):
         
         batch_size = len(knowledge_batch)
+
+        if self.args.use_chat_template:
+            x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
 
         # self.reference_optimizer.zero_grad()
         # task_ids = [self.args.knowledge2task_id[k] for k in knowledge_batch]
@@ -210,7 +212,10 @@ class Nesy(nn.Module):
     def eval_task(self, knowledge_batch, x_batch, y_batch, evaluater):
         
         batch_size = len(knowledge_batch)
-        
+
+        if self.args.use_chat_template:
+            x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+
         if self.args.fuse_method == "delta":
             
             results = []

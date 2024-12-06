@@ -264,11 +264,12 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
     num_correct_neural = 0
     num_test_neural = 0
 
-    knowledge_prompt = """
-Instruction: {}
-Input: {}
-Output:
-"""
+#     knowledge_prompt = """
+# Instruction: {}
+# Input: {}
+# Output:
+# """
+
 
     if method == "finetuning":
 
@@ -289,8 +290,9 @@ Output:
                             batch_size = len(knowledge_batch)
                             x_batch = batch["input"]
                             x_batch = [prompt_template.format(x) for x in x_batch]
-                            input_batch = [knowledge_prompt.format(knowledge_batch[i], x_batch[i]) for i in range(batch_size)]
                             y_batch = batch["target"]
+                            input_message = [[{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
+                            input_batch = [nesy.llm.tokenizer.apply_chat_template(input_message[i], tokenize=False) for i in range(len(input_message))]
                             expanded_params = params.repeat_interleave(len(input_batch), dim=0)
                             test_loss += nesy.compute_task_loss(expanded_params, input_batch, y_batch)
                         test_loss /= len(seen_task_test_data_loader)
@@ -307,8 +309,9 @@ Output:
                 batch_size = len(knowledge_batch)
                 x_batch = batch["input"]
                 x_batch = [prompt_template.format(x) for x in x_batch]
-                input_batch = [knowledge_prompt.format(knowledge_batch[i], x_batch[i]) for i in range(batch_size)]
                 y_batch = batch["target"]
+                input_message = [[{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
+                input_batch = [nesy.llm.tokenizer.apply_chat_template(input_message[i], tokenize=False) for i in range(len(input_message))]
                 expanded_params = params.repeat_interleave(len(input_batch), dim=0)
                 task_loss = nesy.compute_task_loss(expanded_params, input_batch, y_batch)
                 task_loss.backward()
@@ -323,10 +326,14 @@ Output:
             batch_size = len(knowledge_batch)
             x_batch = batch["input"]
             x_batch = [prompt_template.format(x) for x in x_batch]
-            input_batch = [knowledge_prompt.format(knowledge_batch[i], x_batch[i]) for i in range(batch_size)]
             y_batch = batch["target"]
 
-            input_ids = nesy.llm.tokenizer(input_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
+            input_message = [[{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
+            input_text = [nesy.llm.tokenizer.apply_chat_template(input_message[i], tokenize=False) for i in range(len(input_message))]
+            input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
+
+            # input_batch = [knowledge_prompt.format(knowledge_batch[i], x_batch[i]) for i in range(batch_size)]
+            # input_ids = nesy.llm.tokenizer(input_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
             
             if method == "prompting":
                 y_pred = nesy.llm.predict_task(input_ids)
@@ -365,10 +372,11 @@ Output:
             batch_size = len(knowledge_batch)
             x_batch = batch["input"]
             x_batch = [prompt_template.format(x) for x in x_batch]
-            input_batch = [knowledge_prompt.format(knowledge_batch[i], x_batch[i]) for i in range(batch_size)]
             y_batch = batch["target"]
 
-            input_ids = nesy.llm.tokenizer(input_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
+            input_message = [[{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
+            input_text = [nesy.llm.tokenizer.apply_chat_template(input_message[i], tokenize=False) for i in range(len(input_message))]
+            input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
             
             if method == "prompting":
                 y_pred = nesy.llm.predict_task(input_ids)
@@ -405,12 +413,14 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
     log.writelines(f"symbolic task testing for method: {method} \n")
     log.flush()
 
-    prompt = """
-I gave a friend an instruction and an input. 
-The friend read the instruction and wrote an output for the input.
-{}
-So my instruction is: 
-"""
+#     prompt = """
+# I gave a friend an instruction and an input. 
+# The friend read the instruction and wrote an output for the input.
+# {}
+# So my instruction is: 
+# """
+
+    sys_prompt = "Given the following input and output pairs, please infer the instruction."
 
     if method == "finetuning":
 
@@ -428,20 +438,20 @@ So my instruction is:
 
             for _ in range(10):
                 io_sample_train = random.sample(seen_subtask_train_data, 5)
-                io_text_train = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in io_sample_train])
+                io_text_train = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in io_sample_train])
                 seen_train_data_induction.append({
                     "knowledge": knowledge,
                     "io_text": io_text_train
                     })
             io_sample_test = random.sample(seen_subtask_test_data, 5)
-            io_text_test = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in io_sample_test])
+            io_text_test = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in io_sample_test])
             seen_test_data_induction.append({
                 "knowledge": knowledge,
                 "io_text": io_text_test
                 })
         
-        seen_task_train_data_loader = DataLoader(seen_train_data_induction, batch_size=args.batch_size, shuffle=True)
-        seen_task_test_data_loader = DataLoader(seen_test_data_induction, batch_size=args.batch_size, shuffle=True)
+        seen_task_train_data_loader = DataLoader(seen_train_data_induction, batch_size=args.batch_size//4, shuffle=True)
+        seen_task_test_data_loader = DataLoader(seen_test_data_induction, batch_size=args.batch_size//4, shuffle=True)
 
         params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16)
         optimizer = torch.optim.Adam([params], lr=args.task_finetune_lr)
@@ -458,7 +468,9 @@ So my instruction is:
                         for batch in seen_task_test_data_loader:
                             knowledge_batch = batch["knowledge"]
                             batch_size = len(knowledge_batch)
-                            io_batch = [prompt.format(batch["io_text"][i]) for i in range(batch_size)]
+                            #io_batch = [prompt.format(batch["io_text"][i]) for i in range(batch_size)]
+                            io_message = [[{"role": "system", "content": sys_prompt}, {"role": "user", "content": batch["io_text"][i]}] for i in range(batch_size)]
+                            io_batch = [nesy.llm.tokenizer.apply_chat_template(io_message[i], tokenize=False) for i in range(batch_size)]
                             expanded_params = params.repeat_interleave(len(io_batch), dim=0)
                             test_loss += nesy.compute_task_loss(expanded_params, io_batch, knowledge_batch)
                         test_loss /= len(seen_task_test_data_loader)
@@ -473,7 +485,8 @@ So my instruction is:
                 optimizer.zero_grad()
                 knowledge_batch = batch["knowledge"]
                 batch_size = len(knowledge_batch)
-                io_batch = [prompt.format(batch["io_text"][i]) for i in range(batch_size)]
+                io_message = [[{"role": "system", "content": sys_prompt}, {"role": "user", "content": batch["io_text"][i]}] for i in range(batch_size)]
+                io_batch = [nesy.llm.tokenizer.apply_chat_template(io_message[i], tokenize=False) for i in range(batch_size)]
                 expanded_params = params.repeat_interleave(len(io_batch), dim=0)
                 task_loss = nesy.compute_task_loss(expanded_params, io_batch, knowledge_batch)
                 task_loss.backward()
@@ -494,11 +507,13 @@ So my instruction is:
         with torch.no_grad():
             
             obeserved_samples = random.sample(seen_subtask_data, 5)
+            obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
+            #obeserved_text = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in obeserved_samples])
+            #induction_questions = prompt.format(obeserved_text)
 
-            obeserved_text = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in obeserved_samples])
-            induction_questions = prompt.format(obeserved_text)
-            
-            input_ids = nesy.llm.tokenizer(induction_questions, return_tensors="pt").input_ids.to(nesy.args.task_device)
+            input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
+            input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
+            input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
             if method == "prompting":
                 predicted_knowledge = nesy.llm.predict_task(input_ids)
@@ -538,12 +553,14 @@ So my instruction is:
         # start testing symbolic task
         with torch.no_grad():
             
-            obeserved_samples = random.sample(unseen_subtask_data, 5)
+            obeserved_samples = random.sample(seen_subtask_data, 5)
+            obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
+            #obeserved_text = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in obeserved_samples])
+            #induction_questions = prompt.format(obeserved_text)
 
-            obeserved_text = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in obeserved_samples])
-            induction_questions = prompt.format(obeserved_text)
-            
-            input_ids = nesy.llm.tokenizer(induction_questions, return_tensors="pt").input_ids.to(nesy.args.task_device)
+            input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
+            input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
+            input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
             if method == "prompting":
                 predicted_knowledge = nesy.llm.predict_task(input_ids)
@@ -773,13 +790,14 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
-    parser.add_argument('--method', type=str, default="nesy", help='the method to train the model.')
+    parser.add_argument('--method', type=str, default="finetuning", help='the method to train the model.')
     parser.add_argument('--prior', type=str, default="gaussian", help='the prior distribution of the model.')
     parser.add_argument('--nf', action="store_true", default=False, help='Whether to use the flow model.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='the method to fuse the task model and the prior model.')
     parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='whether to use the instance in the decoder.')
     parser.add_argument('--use_trainable_task_model', action="store_true", default=False, help='whether to use the trainable task model.')
+    parser.add_argument('--use_chat_template', action="store_true", default=True, help='whether to use the chat template.')
 
     parser.add_argument('--ebm_optim_method', type=str, default="entropy", help='the method to optimize the energy-based model.')
     #parser.add_argument('--ebm_optim_method', type=str, default="nce", help='name of dataset.')

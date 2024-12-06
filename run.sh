@@ -17,6 +17,7 @@ while [[ "$#" -gt 0 ]]; do
         --pretraining) pretraining="$2"; shift ;;
         --use_instance_in_decoder) use_instance_in_decoder="$2"; shift ;;
         --use_trainable_task_model) use_trainable_task_model="$2"; shift ;;
+        --use_chat_template) use_chat_template="$2"; shift ;;
         --method) method="$2"; shift ;;
         --num_peak) num_peak="$2"; shift ;;
         --valid_epoch) valid_epoch="$2"; shift ;;
@@ -84,6 +85,10 @@ fi
 
 if [ "$use_trainable_task_model" = "True" ] || [ "$use_trainable_task_model" = "true" ]; then
     args="$args --use_trainable_task_model"
+fi
+
+if [ "$use_chat_template" = "True" ] || [ "$use_chat_template" = "true" ]; then
+    args="$args --use_chat_template"
 fi
 
 if [ -n "$num_peak" ]; then

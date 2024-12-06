@@ -786,6 +786,9 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
 def normalize_answer(s):
     """Lower text and remove punctuation, and extra whitespace."""
 
+    def remove_html(text):
+        return re.sub(r'<[^>]*>', '', text)
+
     def white_space_fix(text):
         return ' '.join(text.split())
 
@@ -796,7 +799,7 @@ def normalize_answer(s):
     def lower(text):
         return text.lower()
 
-    return white_space_fix(remove_punc(lower(s)))
+    return white_space_fix(remove_punc(lower(remove_html(s))))
 
 def exact_match_score(prediction, ground_truth, xlingual=False):
     return (normalize_answer(prediction) == normalize_answer(ground_truth))
