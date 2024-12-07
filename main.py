@@ -385,7 +385,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                     new_task_parameters = nesy.llm.allocate(params)
                     y_pred = nesy.llm.predict_task(input_ids, new_task_parameters)
                 elif args.fuse_method == "p-tuning":
-                    expanded_params = params.repeat_interleave(len(input_batch), dim=0)
+                    expanded_params = params.repeat_interleave(len(input_text), dim=0)
                     y_pred = nesy.llm.predict_task(input_ids, expanded_params)
 
             y_pred = [y.split("\n")[0] for y in y_pred]
@@ -777,8 +777,8 @@ def main(args):
                     train_log.flush()
     
     else:
-        symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
-        test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
+        #symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
+        #test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
         neural_task_test_log = open(f"{args.exp_dir}/neural_task.log", "w")
         test_neural_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, neural_task_test_log, method=args.method)
 

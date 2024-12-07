@@ -2,7 +2,7 @@
 |-----------|-----------|-------------|-----------| ---------|
 |           | neural    | symbolic    | neural    | symbolic |
 | prompting * | 1.28      | 9.09      |  1.17     |    0.00  |
-| vanilla SFT | 25.69   | 28.34       |           |    0.00  |
+| vanilla SFT | 25.69   | 37.43       |           |    0.00  |
 | huanxuan  |           | -           |           |          |
 | itd       | -         |             |           |          |
 | NesyFlow-in-domain | 26.95 | 93.58  |    5.56   |   33.33   |
