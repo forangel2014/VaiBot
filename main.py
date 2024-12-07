@@ -299,7 +299,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                         test_loss_ls.append(test_loss.tolist())
                         log.writelines(f"{test_loss.tolist()}\n")
                         log.flush()
-                        if len(test_loss_ls) > args.task_finetune_step:
+                        if len(test_loss_ls) > args.task_finetune_step*3:
                             if test_loss_ls[-1] > test_loss_ls[-2]:
                                 keep_training = False
                                 break
@@ -342,7 +342,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                     new_task_parameters = nesy.llm.allocate(params)
                     y_pred = nesy.llm.predict_task(input_ids, new_task_parameters)
                 elif args.fuse_method == "p-tuning":
-                    expanded_params = params.repeat_interleave(len(input_batch), dim=0)
+                    expanded_params = params.repeat_interleave(len(input_text), dim=0)
                     y_pred = nesy.llm.predict_task(input_ids, expanded_params)
 
             y_pred = [y.split("\n")[0] for y in y_pred]
@@ -477,7 +477,7 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                         test_loss_ls.append(test_loss.tolist())
                         log.writelines(f"{test_loss.tolist()}\n")
                         log.flush()
-                        if len(test_loss_ls) > args.task_finetune_step:
+                        if len(test_loss_ls) > args.task_finetune_step*3:
                             if test_loss_ls[-1] > test_loss_ls[-2]:
                                 keep_training = False
                                 break
@@ -797,7 +797,7 @@ if __name__ == '__main__':
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='the method to fuse the task model and the prior model.')
     parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='whether to use the instance in the decoder.')
     parser.add_argument('--use_trainable_task_model', action="store_true", default=False, help='whether to use the trainable task model.')
-    parser.add_argument('--use_chat_template', action="store_true", default=True, help='whether to use the chat template.')
+    parser.add_argument('--use_chat_template', action="store_true", default=False, help='whether to use the chat template.')
 
     parser.add_argument('--ebm_optim_method', type=str, default="entropy", help='the method to optimize the energy-based model.')
     #parser.add_argument('--ebm_optim_method', type=str, default="nce", help='name of dataset.')
