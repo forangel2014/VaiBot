@@ -705,8 +705,6 @@ def main(args):
 
                 valid_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="seen task test")
                 valid_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_valid_log, name="unseen task test")
-                
-            #return 0
 
             for i, batch in tqdm(enumerate(train_data_loader), desc=f"epoch {epoch}"):
 
