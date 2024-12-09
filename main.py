@@ -190,12 +190,12 @@ def test_neural2symbolic(args, epoch, test_data, nesy, prompt_template, evaluate
 
     start_time = time.time()
     all_tasks_ids = list(set([sample["sub_task_id"] for sample in test_data]))
-    
+
     #all_tasks_ids = random.sample(all_tasks_ids, 10)
-    
+
     num_correct_symbolic = 0
     num_test_symbolic = 0
-    
+
     for task_id in all_tasks_ids:
 
         # subtask_train_data = [data for data in train_data if data["sub_task_id"] == task_id]
@@ -214,9 +214,9 @@ def test_neural2symbolic(args, epoch, test_data, nesy, prompt_template, evaluate
         #encoded_latent = [nesy.reparameterize(*nesy.encode(knowledge_ids)) for i in range(num_samples)]
         #randomn_latent = [torch.randn([1, nesy.args.latent_size]) for i in range(num_samples)]
         trained_latents = []
-    
+
         for i in range(num_samples):
-            
+
             if args.indirect_finetune:
                 trained_params, test_loss_ls = train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template)
             else:

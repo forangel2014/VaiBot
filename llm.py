@@ -113,11 +113,15 @@ class WrappedLLM(nn.Module):
 
 
     def save(self, dir):
+        if self.args.use_trainable_task_model:
+            self.task_model.save_pretrained(os.path.join(dir, "task_model_lora"))
         self.encoder.save_pretrained(os.path.join(dir, "encoder_lora"))
         self.decoder.save_pretrained(os.path.join(dir, "decoder_lora"))
         json.dump(self.param_info, open(os.path.join(dir, "params_info.json"), "w"))
 
     def load(self, dir):
+        if self.args.use_trainable_task_model:
+            self.task_model = PeftModel.from_pretrained(self.task_model, os.path.join(dir, "task_model_lora")).to(self.args.task_device)
         self.encoder = PeftModel.from_pretrained(self.encoder_model.model, os.path.join(dir, "encoder_lora")).to(self.args.encoder_device)
         self.decoder = PeftModel.from_pretrained(self.decoder_model, os.path.join(dir, "decoder_lora")).to(self.args.decoder_device)
         self.param_info = json.load(open(os.path.join(dir, "params_info.json"), "r"))
