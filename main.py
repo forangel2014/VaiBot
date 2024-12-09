@@ -604,7 +604,7 @@ def main(args):
         for key in loaded_args:
             if key not in ["exp_dir", "load_exp", "load_epoch", "encoder_device", "decoder_device", "task_device", 
                            "flow_device", "noise_device", "task_finetune_step", "task_finetune_lr", "batch_size",
-                           "zero_init", "dataset", "pretraining", "valid_epoch", "save_epoch"]:
+                           "zero_init", "dataset", "pretraining", "valid_epoch", "save_epoch", "task_model_name_or_path"]:
                 args.__dict__[key] = loaded_args[key]
         args.load_nesy_ckpt = f"{args.load_exp}/epoch{args.load_epoch}/nesy_ckpt/"
         start_epoch = args.load_epoch
@@ -775,8 +775,8 @@ def main(args):
                     train_log.flush()
     
     else:
-        #symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
-        #test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
+        symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
+        test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
         neural_task_test_log = open(f"{args.exp_dir}/neural_task.log", "w")
         test_neural_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, neural_task_test_log, method=args.method)
 
@@ -784,7 +784,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
-    parser.add_argument('--meta_exp_dir', type=str, default="./exp_new", help='the directory to save all the experiment results.')
+    parser.add_argument('--meta_exp_dir', type=str, default="./exp", help='the directory to save all the experiment results.')
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
@@ -834,9 +834,10 @@ if __name__ == '__main__':
     parser.add_argument('--results_name', type=str, default=None, help='the name of the experiment.')
     #parser.add_argument('--model_name_or_path', type=str, default="/netcache/huggingface/llama-2-7b-chat-hf", help='Tasks for instructions generation')
     parser.add_argument('--model_name_or_path', type=str, default="/mnt/workspace/user/chenhao/pretrained_models/Llama-2-7b-chat-hf", help='the path of the pretrained model.')
+    parser.add_argument('--task_model_name_or_path', type=str, default="None", help='the path of the pretrained model.')
     parser.add_argument('--finetuned_model', type=str, default=None, help='the path of the finetuned model.')
     
-    parser.add_argument('--cuda_devices', type=str, default="3,4,5", help='the devices to use')
+    parser.add_argument('--cuda_devices', type=str, default="0,1,2", help='the devices to use')
     parser.add_argument('--encoder_device', type=int, default=0, help='the device to use')
     parser.add_argument('--decoder_device', type=int, default=1, help='the device to use')
     parser.add_argument('--task_device', type=int, default=2, help='the device to use')

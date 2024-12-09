@@ -11,6 +11,7 @@ while [[ "$#" -gt 0 ]]; do
         --cuda_devices) cuda_devices="$2"; shift ;;
         --dataset) dataset="$2"; shift ;;
         --model_name_or_path) model_name_or_path="$2"; shift ;;
+        --task_model_name_or_path) task_model_name_or_path="$2"; shift ;;
         --meta_exp_dir) meta_exp_dir="$2"; shift ;;
         --exp_name) exp_name="$2"; shift ;;
         --lr) lr="$2"; shift ;;
@@ -61,6 +62,10 @@ args=""
 
 if [ -n "$model_name_or_path" ]; then
     args="$args --model_name_or_path $model_name_or_path"
+fi
+
+if [ -n "$task_model_name_or_path" ]; then
+    args="$args --task_model_name_or_path $task_model_name_or_path"
 fi
 
 if [ -n "$cuda_devices" ]; then
@@ -232,5 +237,9 @@ if [ -n "$target_modules" ]; then
 fi
 
 mkdir -p ./$meta_exp_dir/$exp_name
-eval "$python_cmd $args" > ./$meta_exp_dir/$exp_name/terminal.txt 2>&1
+
+# 将 python_cmd 和 args 写入 terminal.txt
+echo "$python_cmd $args" > ./$meta_exp_dir/$exp_name/terminal.txt
+
+eval "$python_cmd $args" >> ./$meta_exp_dir/$exp_name/terminal.txt 2>&1
 #echo $! > ./$meta_exp_dir/$exp_name/pid.txt

@@ -24,7 +24,10 @@ class WrappedLLM(nn.Module):
         self.config = AutoConfig.from_pretrained(args.model_name_or_path)
         self.dtype = torch.bfloat16
 
-        self.task_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
+        if args.task_model_name_or_path == None:
+            args.task_model_name_or_path = args.model_name_or_path
+
+        self.task_model = AutoModelForCausalLM.from_pretrained(args.task_model_name_or_path,
                                                         device_map=args.task_device,#"auto",
                                                         torch_dtype=self.dtype, 
                                                         trust_remote_code=True,

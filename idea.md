@@ -65,3 +65,4 @@
         - 消融：微调带不带encoder，decode时候带不带xy，z融合LLM的方式（lora,delta,prefix）
         - 比较生成的k相比于原先的k的好坏（更简洁？）
         - 建模为让task loss小于某个阈值的重建优化任务，推导出最终的三项损失之和
+        - 训练完NesyVAE后，更换task model，看泛化性
