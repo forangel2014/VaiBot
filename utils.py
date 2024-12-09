@@ -255,7 +255,7 @@ transformation B: {knowledge_pred}
                     response = None
                     while not response:
                         try:
-                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages)
+                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
                         except:
                             pass
                     response = response.choices[0].message.content
@@ -385,7 +385,7 @@ transformation B: {knowledge_pred}
                     response = None
                     while not response:
                         try:
-                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages)
+                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
                         except:
                             pass
                     response = response.choices[0].message.content
@@ -411,7 +411,7 @@ transformation B: {knowledge_pred}
     # import pdb; pdb.set_trace()
     return all_data
 
-def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True, save=False):
+def load_pretrain_data_hf(pretrain_data_ratio, valid_ratio=0.1, valid_num=None, load_from_local=True, save=False):
 
     mkdir("./data/pretrain")
 
@@ -769,6 +769,8 @@ def load_pretrain_data_hf(valid_ratio=0.1, valid_num=None, load_from_local=True,
     #         all_samples.append(my_sample)
 
     all_samples = [sample for sample in all_samples if len(sample['input'].split(' ')) < 30 and len(sample['target'].split(' ')) < 30 and len(sample['knowledge'].split(' ')) < 30 and len(sample['knowledge'].split(' ')) > 1]
+
+    all_samples = all_samples[:int(len(all_samples) * pretrain_data_ratio)]
 
     for sample in all_samples:
         sample["input"] = f"<input>{sample['input']}</input>"

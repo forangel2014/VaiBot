@@ -24,7 +24,7 @@ class WrappedLLM(nn.Module):
         self.config = AutoConfig.from_pretrained(args.model_name_or_path)
         self.dtype = torch.bfloat16
 
-        if args.task_model_name_or_path == None:
+        if args.task_model_name_or_path is None:
             args.task_model_name_or_path = args.model_name_or_path
 
         self.task_model = AutoModelForCausalLM.from_pretrained(args.task_model_name_or_path,
