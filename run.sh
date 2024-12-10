@@ -17,6 +17,7 @@ while [[ "$#" -gt 0 ]]; do
         --lr) lr="$2"; shift ;;
         --pretraining) pretraining="$2"; shift ;;
         --use_instance_in_decoder) use_instance_in_decoder="$2"; shift ;;
+        --use_knowledge_in_task) use_knowledge_in_task="$2"; shift ;;
         --use_trainable_task_model) use_trainable_task_model="$2"; shift ;;
         --use_chat_template) use_chat_template="$2"; shift ;;
         --indirect_finetune) indirect_finetune="$2"; shift ;;
@@ -87,6 +88,10 @@ fi
 
 if [ "$use_instance_in_decoder" = "True" ] || [ "$use_instance_in_decoder" = "true" ]; then
     args="$args --use_instance_in_decoder"
+fi
+
+if [ "$use_knowledge_in_task" = "True" ] || [ "$use_knowledge_in_task" = "true" ]; then
+    args="$args --use_knowledge_in_task"
 fi
 
 if [ "$use_trainable_task_model" = "True" ] || [ "$use_trainable_task_model" = "true" ]; then

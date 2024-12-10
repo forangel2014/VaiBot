@@ -164,13 +164,6 @@ class Nesy(nn.Module):
         if self.args.use_chat_template:
             x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
 
-        # self.reference_optimizer.zero_grad()
-        # task_ids = [self.args.knowledge2task_id[k] for k in knowledge_batch]
-        # reference_params = self.reference_trained_params[task_ids]
-        # reference_task_loss = self.compute_task_loss(reference_params, x_batch, y_batch) / batch_size
-        # reference_task_loss.backward()
-        # self.reference_optimizer.step()
-
         knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
         mean, log_var = self.encode(knowledge_ids)
         
@@ -195,19 +188,20 @@ class Nesy(nn.Module):
             params = params.to(self.args.task_device)
         else:
             params = sampled_latent.to(self.args.task_device)
-        
-        task_loss = self.compute_task_loss(params, x_batch, y_batch)
 
-        #alignment_loss = torch.mean(torch.norm(sampled_latent - reference_params.detach().to(self.args.task_device), dim=1)) #/ self.args.num_latent_samples
+
+        if self.args.use_knowledge_in_task:
+            x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
+
+        task_loss = self.compute_task_loss(params, x_batch, y_batch)
 
         #reg_loss = sampled_latent.norm(1, dim=1).mean() / self.args.latent_size
 
         recon_loss = recon_loss.to(self.args.backward_device)
         task_loss = task_loss.to(self.args.backward_device)
         reg_loss = reg_loss.to(self.args.backward_device)
-        #alignment_loss = alignment_loss.to(self.args.backward_device)
 
-        return reg_loss, recon_loss, task_loss#, alignment_loss, reference_task_loss
+        return reg_loss, recon_loss, task_loss
 
     def eval_task(self, knowledge_batch, x_batch, y_batch, evaluater):
         

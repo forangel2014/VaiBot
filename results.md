@@ -11,5 +11,7 @@
 
 ### ps:
 - Methods marked with * were not trained on seen tasks
+- seen task: sample-level generalization
+- unseen task: task-level generalization
 - deduction: given $k, x$, infer $y$
 - induction: given multiple $x, y$ pairs, infer $k$

@@ -60,8 +60,10 @@ def train_subtask(args, nesy, subtask_train_data_loader, subtask_valid_data_load
 
 def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template):
 
-    x_id = nesy.llm.tokenizer("Follow the instruction and answer the question: I do not know anything.", return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
-    input_embeds = torch.nn.Parameter(nesy.llm.encoder_model.model.embed_tokens(x_id))#.repeat(embedding.shape[0], 1, 1)
+    #knowledge = "<instruction>Follow the instruction and answer the question: I do not know anything.</instruction>"
+    knowledge = "<instruction>Generate the output based on the given input.</instruction>"
+    knowledge_id = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
+    input_embeds = torch.nn.Parameter(nesy.llm.encoder_model.model.embed_tokens(knowledge_id))#.repeat(embedding.shape[0], 1, 1)
 
     optimizer = torch.optim.Adam([input_embeds], lr=args.task_finetune_lr)
     keep_training = True
@@ -78,6 +80,10 @@ def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_
                         x_batch = batch["input"]
                         x_batch = [prompt_template.format(x) for x in x_batch]
                         y_batch = batch["target"]
+
+                        if args.use_knowledge_in_task:
+                            x_batch = [knowledge + x_batch[i] for i in range(len(x_batch))]
+
                         params, _ = nesy.encode(input_embeds)
                         params = params.to(nesy.args.task_device)
                         expanded_params = params.repeat_interleave(len(x_batch), dim=0)
@@ -167,6 +173,11 @@ def test_symbolic2neural(args, epoch, data_loader, nesy, prompt_template, evalua
             x_batch = batch["input"]
             x_batch = [prompt_template.format(x) for x in x_batch]
             y_batch = batch["target"]
+            
+            # add knowledge to the input
+            if args.use_knowledge_in_task:
+                x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
+            
             results = nesy.eval_task(knowledge_batch, x_batch, y_batch, evaluater)
             for result in results:
                 log.writelines(f"{json.dumps(result, indent=4)}\n")
@@ -771,7 +782,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
-    parser.add_argument('--meta_exp_dir', type=str, default="./exp", help='the directory to save all the experiment results.')
+    parser.add_argument('--meta_exp_dir', type=str, default="./exp_new", help='the directory to save all the experiment results.')
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
@@ -781,6 +792,7 @@ if __name__ == '__main__':
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='the method to fuse the task model and the prior model.')
     parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='whether to use the instance in the decoder.')
+    parser.add_argument('--use_knowledge_in_task', action="store_true", default=False, help='whether to use the instance in the decoder.')
     parser.add_argument('--use_trainable_task_model', action="store_true", default=False, help='whether to use the trainable task model.')
     parser.add_argument('--use_chat_template', action="store_true", default=False, help='whether to use the chat template.')
     parser.add_argument('--indirect_finetune', action="store_true", default=False, help='whether to use the chat template.')
@@ -815,9 +827,9 @@ if __name__ == '__main__':
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
     parser.add_argument('--num_soft_token', type=int, default=10, help='max number of tokens to generate.')
     
-    #parser.add_argument('--load_exp', type=str, default="vae-pretrain-small-decoder", help='name of dataset.')
+    #parser.add_argument('--load_exp', type=str, default="self", help='name of dataset.')
     parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
-    parser.add_argument('--load_epoch', type=int, default=5, help='the epoch of the pretrained model.')
+    parser.add_argument('--load_epoch', type=int, default=0, help='the epoch of the pretrained model.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether to ignore the existing model.')
     parser.add_argument('--results_name', type=str, default=None, help='the name of the experiment.')
     #parser.add_argument('--model_name_or_path', type=str, default="/netcache/huggingface/llama-2-7b-chat-hf", help='Tasks for instructions generation')

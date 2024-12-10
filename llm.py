@@ -46,8 +46,6 @@ class WrappedLLM(nn.Module):
                 bias="none",
                 task_type="CAUSAL_LM",
             )
-            self.task_model = get_peft_model(self.task_model, self.task_config)#.to(self.args.task_device)
-            self.task_model.print_trainable_parameters()            
         else:
             for params in self.task_model.parameters():
                 params.requires_grad = False
@@ -98,9 +96,12 @@ class WrappedLLM(nn.Module):
             )
 
             if args.load_nesy_ckpt:
-                self.load(args.load_nesy_ckpt)
-                
+                #self.load(args.load_nesy_ckpt)
+                pass
             else:
+                if args.use_trainable_task_model:
+                    self.task_model = get_peft_model(self.task_model, self.task_config)
+                    self.task_model.print_trainable_parameters()
                 self.encoder = get_peft_model(self.encoder_model.model, self.encoder_config)
                 self.encoder.print_trainable_parameters()
                 self.decoder = get_peft_model(self.decoder_model, self.decoder_config)
