@@ -900,8 +900,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
     parser.add_argument('--num_soft_token', type=int, default=10, help='max number of tokens to generate.')
     
-    parser.add_argument('--load_exp', type=str, default="vae-pretrain-use-knowledge-in-task", help='name of dataset.')
-    #parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
+    #parser.add_argument('--load_exp', type=str, default="vae-pretrain-use-knowledge-in-task", help='name of dataset.')
+    parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
     parser.add_argument('--load_epoch', type=int, default=1, help='the epoch of the pretrained model.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether to ignore the existing model.')
     parser.add_argument('--results_name', type=str, default=None, help='the name of the experiment.')

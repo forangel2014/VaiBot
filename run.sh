@@ -47,8 +47,10 @@ while [[ "$#" -gt 0 ]]; do
         --backward_device) backward_device="$2"; shift ;;
         --num_latent_samples) num_latent_samples="$2"; shift ;;
         --load_exp) load_exp="$2"; shift ;;
+        --pretrain_data_ratio) pretrain_data_ratio="$2"; shift ;;
         --unseen_task_ratio) unseen_task_ratio="$2"; shift ;;
         --test_sample_num) test_sample_num="$2"; shift ;;
+        --test_sample_ratio) test_sample_ratio="$2"; shift ;;
         --load_epoch) load_epoch="$2"; shift ;;
         --encoder_lora_r) encoder_lora_r="$2"; shift ;;
         --decoder_lora_r) decoder_lora_r="$2"; shift ;;
@@ -218,12 +220,21 @@ if [ -n "$unseen_task_ratio" ]; then
     args="$args --unseen_task_ratio $unseen_task_ratio"
 fi
 
+if [ -n "$test_sample_ratio" ]; then
+    args="$args --test_sample_ratio $test_sample_ratio"
+fi
+
 if [ -n "$load_exp" ]; then
     args="$args --load_exp $load_exp"
 fi
 
 if [ -n "$load_epoch" ]; then
     args="$args --load_epoch $load_epoch"
+fi
+
+
+if [ -n "$pretrain_data_ratio" ]; then
+    args="$args --pretrain_data_ratio $pretrain_data_ratio"
 fi
 
 if [ -n "$fuse_method" ]; then
@@ -248,8 +259,6 @@ fi
 
 mkdir -p ./$meta_exp_dir/$exp_name
 
-# 将 python_cmd 和 args 写入 terminal.txt
 echo "$python_cmd $args" > ./$meta_exp_dir/$exp_name/terminal.txt
 
 eval "$python_cmd $args" >> ./$meta_exp_dir/$exp_name/terminal.txt 2>&1
-#echo $! > ./$meta_exp_dir/$exp_name/pid.txt
