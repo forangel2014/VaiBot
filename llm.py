@@ -289,8 +289,8 @@ class WrappedLLM(nn.Module):
                                     early_stopping=True,
                                     eos_token_id=self.tokenizer.eos_token_id,
                                     pad_token_id=self.tokenizer.pad_token_id,
-                                    temperature=0.0,
-                                    # do_sample=do_sample,
+                                    #temperature=0.0,
+                                    #do_sample=False,
                                     # stopping_criteria=stopping_criteria
                                     )
 
@@ -328,7 +328,8 @@ class WrappedLLM(nn.Module):
                                     early_stopping=True,
                                     eos_token_id=self.tokenizer.eos_token_id,
                                     pad_token_id=self.tokenizer.pad_token_id,
-                                    # do_sample=do_sample,
+                                    #temperature=0.0,
+                                    #do_sample=False,
                                     # stopping_criteria=stopping_criteria
                                     )
         
@@ -352,8 +353,8 @@ class WrappedLLM(nn.Module):
                                 early_stopping=True,
                                 eos_token_id=self.tokenizer.eos_token_id,
                                 pad_token_id=self.tokenizer.pad_token_id,
-                                temperature=0.0,
-                                # do_sample=do_sample,
+                                #temperature=0.0,
+                                #do_sample=False,
                                 # stopping_criteria=stopping_criteria
                                 )
 

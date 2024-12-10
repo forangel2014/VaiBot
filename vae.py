@@ -199,8 +199,7 @@ class Nesy(nn.Module):
         else:
             params = sampled_latent.to(self.args.task_device)
 
-
-        if self.args.use_knowledge_in_task:
+        if self.args.use_knowledge_in_task.lower() in ["hard", "soft"]:
             x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
 
         task_loss = self.compute_task_loss(params, x_batch, y_batch)

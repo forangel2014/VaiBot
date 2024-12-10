@@ -13,6 +13,8 @@ import random
 import matplotlib.pyplot as plt
 import string
 from src.rouge import rouge_scorer
+random.seed(73)
+
 openai.api_key = "sk-GX5fQitXHKizUe4iF8Ed3375A72847A8807c9dAb0290C1Bc"
         # openai.base_url = url
 openai.base_url = 'https://chatapi.onechats.top/v1/'

@@ -90,10 +90,6 @@ if [ "$use_instance_in_decoder" = "True" ] || [ "$use_instance_in_decoder" = "tr
     args="$args --use_instance_in_decoder"
 fi
 
-if [ "$use_knowledge_in_task" = "True" ] || [ "$use_knowledge_in_task" = "true" ]; then
-    args="$args --use_knowledge_in_task"
-fi
-
 if [ "$use_trainable_task_model" = "True" ] || [ "$use_trainable_task_model" = "true" ]; then
     args="$args --use_trainable_task_model"
 fi
@@ -104,6 +100,10 @@ fi
 
 if [ "$indirect_finetune" = "True" ] || [ "$indirect_finetune" = "true" ]; then
     args="$args --indirect_finetune"
+fi
+
+if [ -n "$use_knowledge_in_task" ]; then
+    args="$args --use_knowledge_in_task $use_knowledge_in_task"
 fi
 
 if [ -n "$num_peak" ]; then
