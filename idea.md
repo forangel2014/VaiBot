@@ -67,3 +67,4 @@
         - 建模为让task loss小于某个阈值的重建优化任务(VIB的套路)，推导出最终的三项损失之和
         - 训练完NesyVAE后，更换task model，看泛化性
         - 迭代式增强，人在回路
+        - 能够利用零碎的k,x,y数据，不再依赖于teacher model的训练

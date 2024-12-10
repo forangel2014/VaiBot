@@ -84,7 +84,7 @@ class Nesy(nn.Module):
             outputs = self.llm.decode(embedding, labels)
         return outputs
 
-    def sample(self, context, sample_from_guassian=True, instance=None):
+    def predict_knowledge(self, context, sample_from_guassian=True, instance=None):
         
         if sample_from_guassian:
             sampled_latent = self.reparameterize(context, torch.ones_like(context)).to(self.args.decoder_device)
@@ -93,9 +93,9 @@ class Nesy(nn.Module):
         embedding = self.decoder_mlp(sampled_latent)
         if self.args.use_instance_in_decoder:
             instance_embedding = self.llm.decoder_model.model.embed_tokens(instance)
-            sampled_ids = self.llm.sample(embedding, instance_embedding)
+            sampled_ids = self.llm.predict_knowledge(embedding, instance_embedding)
         else:
-            sampled_ids = self.llm.sample(embedding)
+            sampled_ids = self.llm.predict_knowledge(embedding)
         #text = [self.llm.tokenizer.decode(k) for k in sampled_ids.tolist()[0]]
         text = self.llm.tokenizer.decode(sampled_ids.tolist()[0], skip_special_tokens=True)
         

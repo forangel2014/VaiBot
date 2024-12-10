@@ -156,6 +156,46 @@ def tagi_pretrain_subtask(args, train_data, nesy, prompt_template, log):
     if args.fuse_method == "delta":
         json.dump(nesy.llm.param_info, open(f"{args.exp_dir}/params_info.json", "w"))
 
+def tagi_train_hypernet(args, train_data, nesy, prompt_template, log):
+
+    #对于所有task_id，读取args.load_exp/tagi_pretrain/{task_id}/optimal_params.pth
+    optimal_params = {}
+    all_tasks_ids = os.listdir(f"{args.load_exp}/tagi_pretrain")
+    for task_id in tqdm(all_tasks_ids):
+        params = torch.tensor(torch.load(f"{args.load_exp}/tagi_pretrain/{task_id}/optimal_params.pth")).to(nesy.args.task_device)
+        optimal_params[task_id] = params
+
+    optimizer = torch.optim.Adam(nesy.llm.encoder.parameters(), lr=args.lr)
+    keep_training = True
+    test_loss_ls = []
+    train_data_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
+
+    for epoch in range(args.epochs):
+        for i, batch in tqdm(enumerate(train_data_loader)):
+            knowledge_batch = batch["knowledge"]
+            x_batch = batch["input"]
+            x_batch = [prompt_template.format(x) for x in x_batch]
+            y_batch = batch["target"]
+            task_ids = [args.knowledge2task_id[knowledge] for knowledge in knowledge_batch]
+            optimal_params = [optimal_params[task_id] for task_id in task_ids]
+            
+            knowledge_ids = nesy.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.encoder_device)
+            encoded_params = nesy.encode(knowledge_ids)[0]
+
+            loss_ins = torch.norm(encoded_params - optimal_params, dim=1, p=2).mean()
+            loss_pred = nesy.compute_task_loss(encoded_params, x_batch, y_batch)
+            
+            loss = loss_ins + loss_pred
+
+            log.writelines(f"loss_ins: {loss_ins.item()}, loss_pred: {loss_pred.item()}, loss: {loss.item()}\n")
+            log.flush()
+
+            loss.backward()
+            optimizer.step()
+
+        if epoch % args.save_epoch == 0 and epoch > 0:
+            nesy.llm.encoder.save_pretrained(f"{args.exp_dir}/epoch{epoch}/encoder_lora")
+
 def test_symbolic2neural(args, epoch, data_loader, nesy, prompt_template, evaluater, log, name):
     
     log.writelines(f"epoch {epoch} \n")
@@ -256,7 +296,7 @@ def test_neural2symbolic(args, epoch, test_data, nesy, prompt_template, evaluate
                 else:
                     instance_ids = None
                     
-                predicted_knowledge = nesy.sample(trained_latent, sample_from_guassian=False, instance=instance_ids)
+                predicted_knowledge = nesy.predict_knowledge(trained_latent, sample_from_guassian=False, instance=instance_ids)
                 #encoded_params = encoded_latent[i].to(nesy.args.decoder_device)
                 #encode_decode_knowledge = nesy.sample(encoded_params, sample_from_guassian=False)
 
@@ -664,13 +704,7 @@ def main(args):
     else:
         nesy = Nesy(args).to(torch.bfloat16)
 
-    if args.method == "tagi_pretrain":
-        
-        pretrain_log = open(f"{args.exp_dir}/tagi_pretrain.log", "w")
-
-        tagi_pretrain_subtask(args, data["seen_tasks"]["train"], nesy, prompt_template, pretrain_log)
-
-    elif args.method == "nesy":
+    if args.method == "nesy":
         optimizer = torch.optim.Adam([
             {'params': nesy.llm.encoder.parameters(), 'lr': args.lr},
             {'params': nesy.encoder_mlp.parameters(), 'lr': args.lr},
@@ -773,7 +807,17 @@ def main(args):
                     info = get_gpu_memory_usage()
                     train_log.writelines(f"{info}\n")
                     train_log.flush()
-    
+
+    elif args.method == "tagi_pretrain":
+        
+        pretrain_log = open(f"{args.exp_dir}/tagi_pretrain.log", "w")
+
+        tagi_pretrain_subtask(args, data["seen_tasks"]["train"], nesy, prompt_template, pretrain_log)
+
+    elif args.method == "tagi_train_hypernet":
+
+        tagi_train_hypernet(args, data["seen_tasks"]["train"], nesy, prompt_template, pretrain_log)
+
     else:
         symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
         test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)

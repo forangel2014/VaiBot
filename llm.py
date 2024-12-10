@@ -58,7 +58,8 @@ class WrappedLLM(nn.Module):
         self.tokenizer.padding_side = "left"
         self.tokenizer.pad_token_id = 0
 
-        if args.method == "nesy":
+        if args.method in ["nesy", "tagi_train_hypernet"]:
+
             self.encoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
                                                             device_map=args.encoder_device,#"auto",
                                                             torch_dtype=self.dtype, 
@@ -108,7 +109,7 @@ class WrappedLLM(nn.Module):
                 self.decoder.print_trainable_parameters()
                 self.param_info = self.specify_parameter(n=args.latent_size)
         
-        elif args.method == "nesy-pretrain":
+        elif args.method == "tagi_pretrain":
             
             self.param_info = self.specify_parameter(n=args.latent_size)
 
@@ -267,6 +268,7 @@ class WrappedLLM(nn.Module):
                                     early_stopping=True,
                                     eos_token_id=self.tokenizer.eos_token_id,
                                     pad_token_id=self.tokenizer.pad_token_id,
+                                    temperature=0.0,
                                     # do_sample=do_sample,
                                     # stopping_criteria=stopping_criteria
                                     )
@@ -313,7 +315,7 @@ class WrappedLLM(nn.Module):
         
         return text
 
-    def sample(self, embedding, instance_embedding=None):
+    def predict_knowledge(self, embedding, instance_embedding=None):
         
         # if embedding.dim() == 2:
         #     embedding = embedding.unsqueeze(1)
@@ -329,6 +331,7 @@ class WrappedLLM(nn.Module):
                                 early_stopping=True,
                                 eos_token_id=self.tokenizer.eos_token_id,
                                 pad_token_id=self.tokenizer.pad_token_id,
+                                temperature=0.0,
                                 # do_sample=do_sample,
                                 # stopping_criteria=stopping_criteria
                                 )
