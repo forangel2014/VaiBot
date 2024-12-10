@@ -111,30 +111,32 @@ def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_
     params = params.to(nesy.args.task_device)
     return params, test_loss_ls
 
-def pretrain_subtask(args, train_data, test_data, nesy, prompt_template, log):
+def tagi_pretrain_subtask(args, train_data, nesy, prompt_template, log):
     
-    all_tasks_ids = list(set([sample["sub_task_id"] for sample in test_data]))
+    all_tasks_ids = list(set([sample["sub_task_id"] for sample in train_data]))
     pretrained_params = []
     
-    all_tasks_ids = all_tasks_ids[180:210]
+    #all_tasks_ids = all_tasks_ids[180:210]
 
     for task_id in tqdm(all_tasks_ids):
         
         log.writelines(f"training subtask {task_id}\n")
         log.flush()
 
-        subtask_train_data = [data for data in train_data if data["sub_task_id"] == task_id]
-        subtask_test_data = [data for data in test_data if data["sub_task_id"] == task_id]
+        subtask_data = [data for data in train_data if data["sub_task_id"] == task_id]
+        subtask_train_data = subtask_data[:-1]
+        subtask_valid_data = subtask_data[-1:]
+
         subtask_train_data_loader = DataLoader(subtask_train_data, batch_size=args.batch_size, shuffle=True)
-        subtask_test_data_loader = DataLoader(subtask_test_data, batch_size=args.batch_size, shuffle=True)
-        knowledge = subtask_test_data[0]["knowledge"]
-        num_samples = 10
+        subtask_valid_data_loader = DataLoader(subtask_valid_data, batch_size=args.batch_size, shuffle=True)
+        knowledge = subtask_valid_data[0]["knowledge"]
+        num_samples = 1
         
         optimal_params = []
 
         for i in range(num_samples):
             
-            params, test_loss_ls = train_subtask(args, nesy, subtask_train_data_loader, subtask_test_data_loader, prompt_template, subtask_test_data)
+            params, test_loss_ls = train_subtask(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template)
             
             log.writelines(f"subtask train loss: {str(test_loss_ls)} \n")
             log.flush()
@@ -146,7 +148,7 @@ def pretrain_subtask(args, train_data, test_data, nesy, prompt_template, log):
         #     "optimal_params": optimal_params
         # })
 
-        save_dir = f"./exp/sni-pretrain/pretrain/{task_id}"
+        save_dir = f"{args.exp_dir}/tagi_pretrain/{task_id}"
         mkdir(save_dir)
         #torch.save(pretrained_params, f"{args.exp_dir}/pretrain/{task_id}/optimal_params.pth")
         torch.save(pretrained_params, f"{save_dir}/optimal_params.pth")
@@ -662,11 +664,11 @@ def main(args):
     else:
         nesy = Nesy(args).to(torch.bfloat16)
 
-    if args.method == "nesy-pretrain":
+    if args.method == "tagi_pretrain":
         
-        pretrain_log = open(f"{args.exp_dir}/pretrain.log", "w")
+        pretrain_log = open(f"{args.exp_dir}/tagi_pretrain.log", "w")
 
-        pretrain_subtask(args, data["seen_tasks"]["train"], data["seen_tasks"]["test"], nesy, prompt_template, pretrain_log)
+        tagi_pretrain_subtask(args, data["seen_tasks"]["train"], nesy, prompt_template, pretrain_log)
 
     elif args.method == "nesy":
         optimizer = torch.optim.Adam([

@@ -1,6 +1,6 @@
 |sni         | seen task (90%) |            |unseen task (10%) |         |
 |-----------|-----------|-------------|-----------| ---------|
-|**method** (tested on the 50% unseen samples of each subtask)    | deduction    | induction    | deduction    | induction |
+|**method** (tested on the 5 unseen samples of each subtask)    | deduction    | induction    | deduction    | induction |
 | prompting * | 1.28      | 9.09      |  1.17     |    0.00  |
 | vanilla SFT | 25.69   | 37.43       |  24.59    |    0.00  |
 | TAGI      |           | -           |           |    -     |
