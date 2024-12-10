@@ -58,7 +58,7 @@ class WrappedLLM(nn.Module):
         self.tokenizer.padding_side = "left"
         self.tokenizer.pad_token_id = 0
 
-        if args.method in ["nesy", "tagi_train_hypernet"]:
+        if args.method in "nesy":
 
             self.encoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
                                                             device_map=args.encoder_device,#"auto",
@@ -113,6 +113,27 @@ class WrappedLLM(nn.Module):
             
             self.param_info = self.specify_parameter(n=args.latent_size)
 
+        elif args.method == "tagi_train_hypernet":
+            self.encoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
+                                                device_map=args.encoder_device,#"auto",
+                                                torch_dtype=self.dtype, 
+                                                trust_remote_code=True,
+                                                #torch_dtype=torch.float16, 
+                                                #load_in_4bit=True
+                                                )
+            
+            self.encoder_config = LoraConfig(
+                r=args.encoder_lora_r,
+                lora_alpha=args.lora_alpha,
+                target_modules=args.target_modules.split(","),
+                fan_in_fan_out=False,
+                lora_dropout=0.05,
+                inference_mode=False,
+                bias="none",
+                task_type="FEATURE_EXTRACTION",
+            )
+            self.encoder = get_peft_model(self.encoder_model.model, self.encoder_config)
+            self.encoder.print_trainable_parameters()
 
     def save(self, dir):
         if self.args.use_trainable_task_model:

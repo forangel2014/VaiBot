@@ -116,8 +116,6 @@ def tagi_pretrain_subtask(args, train_data, nesy, prompt_template, log):
     all_tasks_ids = list(set([sample["sub_task_id"] for sample in train_data]))
     pretrained_params = []
     
-    #all_tasks_ids = all_tasks_ids[180:210]
-
     for task_id in tqdm(all_tasks_ids):
         
         log.writelines(f"training subtask {task_id}\n")
@@ -151,7 +149,7 @@ def tagi_pretrain_subtask(args, train_data, nesy, prompt_template, log):
         save_dir = f"{args.exp_dir}/tagi_pretrain/{task_id}"
         mkdir(save_dir)
         #torch.save(pretrained_params, f"{args.exp_dir}/pretrain/{task_id}/optimal_params.pth")
-        torch.save(pretrained_params, f"{save_dir}/optimal_params.pth")
+        torch.save(optimal_params, f"{save_dir}/optimal_params.pth")
     
     if args.fuse_method == "delta":
         json.dump(nesy.llm.param_info, open(f"{args.exp_dir}/params_info.json", "w"))
@@ -160,29 +158,30 @@ def tagi_train_hypernet(args, train_data, nesy, prompt_template, log):
 
     #对于所有task_id，读取args.load_exp/tagi_pretrain/{task_id}/optimal_params.pth
     optimal_params = {}
-    all_tasks_ids = os.listdir(f"{args.load_exp}/tagi_pretrain")
+    all_tasks_ids = ["1", "2"]#os.listdir(f"{args.load_exp}/tagi_pretrain")
     for task_id in tqdm(all_tasks_ids):
-        params = torch.tensor(torch.load(f"{args.load_exp}/tagi_pretrain/{task_id}/optimal_params.pth")).to(nesy.args.task_device)
-        optimal_params[task_id] = params
+        params = torch.load(f"{args.load_exp}/tagi_pretrain/{task_id}/optimal_params.pth")[0].to(nesy.args.task_device)
+        optimal_params[int(task_id)] = params
 
     optimizer = torch.optim.Adam(nesy.llm.encoder.parameters(), lr=args.lr)
     keep_training = True
     test_loss_ls = []
     train_data_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
 
-    for epoch in range(args.epochs):
+    for epoch in range(args.num_epochs):
         for i, batch in tqdm(enumerate(train_data_loader)):
             knowledge_batch = batch["knowledge"]
             x_batch = batch["input"]
             x_batch = [prompt_template.format(x) for x in x_batch]
             y_batch = batch["target"]
             task_ids = [args.knowledge2task_id[knowledge] for knowledge in knowledge_batch]
-            optimal_params = [optimal_params[task_id] for task_id in task_ids]
+            target_params = [optimal_params[task_id] for task_id in task_ids]
+            target_params = torch.cat(target_params, dim=0).to(nesy.args.task_device)
             
             knowledge_ids = nesy.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.encoder_device)
-            encoded_params = nesy.encode(knowledge_ids)[0]
+            encoded_params = nesy.encode(knowledge_ids)[0].to(nesy.args.task_device)
 
-            loss_ins = torch.norm(encoded_params - optimal_params, dim=1, p=2).mean()
+            loss_ins = torch.norm(encoded_params - target_params, dim=1, p=2).mean() / args.num_soft_token
             loss_pred = nesy.compute_task_loss(encoded_params, x_batch, y_batch)
             
             loss = loss_ins + loss_pred
@@ -371,7 +370,6 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                 task_loss.backward()
                 optimizer.step()
 
-
     # start testing neural task
     with torch.no_grad():
 
@@ -398,6 +396,10 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                 elif args.fuse_method == "p-tuning":
                     expanded_params = params.repeat_interleave(len(input_text), dim=0)
                     y_pred = nesy.llm.predict_task(input_ids, expanded_params)
+            elif method == "tagi":
+                knowledge_ids = nesy.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.encoder_device)
+                encoded_params = nesy.encode(knowledge_ids)[0].to(nesy.args.task_device)
+                y_pred = nesy.llm.predict_task(input_ids, encoded_params)
 
             y_pred = [y.split("\n")[0] for y in y_pred]
 
@@ -441,6 +443,10 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                 elif args.fuse_method == "p-tuning":
                     expanded_params = params.repeat_interleave(len(input_text), dim=0)
                     y_pred = nesy.llm.predict_task(input_ids, expanded_params)
+            elif method == "tagi":
+                knowledge_ids = nesy.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.encoder_device)
+                encoded_params = nesy.encode(knowledge_ids)[0].to(nesy.args.task_device)
+                y_pred = nesy.llm.predict_task(input_ids, encoded_params)
 
             y_pred = [y.split("\n")[0] for y in y_pred]
 
@@ -647,7 +653,8 @@ def main(args):
         for key in loaded_args:
             if key not in ["exp_dir", "load_exp", "load_epoch", "encoder_device", "decoder_device", "task_device", 
                            "flow_device", "noise_device", "task_finetune_step", "task_finetune_lr", "batch_size",
-                           "zero_init", "dataset", "pretraining", "valid_epoch", "save_epoch", "task_model_name_or_path"]:
+                           "zero_init", "dataset", "pretraining", "valid_epoch", "save_epoch", "task_model_name_or_path",
+                           "method"]:
                 args.__dict__[key] = loaded_args[key]
         args.load_nesy_ckpt = f"{args.load_exp}/epoch{args.load_epoch}/nesy_ckpt/"
         start_epoch = args.load_epoch
@@ -816,7 +823,9 @@ def main(args):
 
     elif args.method == "tagi_train_hypernet":
 
-        tagi_train_hypernet(args, data["seen_tasks"]["train"], nesy, prompt_template, pretrain_log)
+        hypernet_log = open(f"{args.exp_dir}/hypernet.log", "w")
+
+        tagi_train_hypernet(args, data["seen_tasks"]["train"], nesy, prompt_template, hypernet_log)
 
     else:
         symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
@@ -828,11 +837,11 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
-    parser.add_argument('--meta_exp_dir', type=str, default="./exp_new", help='the directory to save all the experiment results.')
+    parser.add_argument('--meta_exp_dir', type=str, default="./exp_baseline", help='the directory to save all the experiment results.')
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
-    parser.add_argument('--method', type=str, default="finetuning", help='the method to train the model.')
+    parser.add_argument('--method', type=str, default="tagi_train_hypernet", help='the method to train the model.')
     parser.add_argument('--prior', type=str, default="gaussian", help='the prior distribution of the model.')
     parser.add_argument('--nf', action="store_true", default=False, help='Whether to use the flow model.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
@@ -873,8 +882,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
     parser.add_argument('--num_soft_token', type=int, default=10, help='max number of tokens to generate.')
     
-    #parser.add_argument('--load_exp', type=str, default="self", help='name of dataset.')
-    parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
+    parser.add_argument('--load_exp', type=str, default="tagi", help='name of dataset.')
+    #parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
     parser.add_argument('--load_epoch', type=int, default=0, help='the epoch of the pretrained model.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether to ignore the existing model.')
     parser.add_argument('--results_name', type=str, default=None, help='the name of the experiment.')

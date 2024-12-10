@@ -42,6 +42,16 @@ class Nesy(nn.Module):
                     INN.Nonlinear(self.latent_size, method="RealNVP"),
                 ).to(self.args.flow_device)
 
+        elif args.method == "tagi_train_hypernet":
+
+            self.encoder_mlp = nn.Sequential(
+                nn.Linear(self.hidden_size, self.hidden_size),
+                nn.ReLU(),
+                nn.Linear(self.hidden_size, self.hidden_size),
+                nn.ReLU(),
+                nn.Linear(self.hidden_size, self.latent_size*2)
+            ).to(self.args.encoder_device)#to(self.args.flow_device)
+
     def save(self, dir):
         mkdir(dir)
         torch.save(self.encoder_mlp.state_dict(), os.path.join(dir, "encoder_mlp.pth"))
