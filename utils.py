@@ -772,16 +772,18 @@ def load_pretrain_data_hf(pretrain_data_ratio, valid_ratio=0.1, valid_num=None, 
 
     all_samples = [sample for sample in all_samples if len(sample['input'].split(' ')) < 30 and len(sample['target'].split(' ')) < 30 and len(sample['knowledge'].split(' ')) < 30 and len(sample['knowledge'].split(' ')) > 1]
 
-    all_samples = all_samples[:int(len(all_samples) * pretrain_data_ratio)]
-
     for sample in all_samples:
         sample["input"] = f"<input>{sample['input']}</input>"
         sample["target"] = f"<output>{sample['target']}</output>"
         sample["knowledge"] = f"<instruction>{sample['knowledge']}</instruction>"
 
     random.shuffle(all_samples)
+
+    all_samples = all_samples[:int(len(all_samples) * pretrain_data_ratio)]
+
     if valid_ratio:
         valid_num = max(round(len(all_samples)*valid_ratio), 1)
+        
     print(f"train_num: {len(all_samples) - valid_num}, valid_num: {valid_num}")
     train_dataset = all_samples[:-valid_num]
     valid_dataset = all_samples[-valid_num:]
