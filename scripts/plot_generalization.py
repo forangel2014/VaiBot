@@ -1,5 +1,3 @@
-# 读取../exp_generalize/下所有文件夹，每个文件夹下的epoch1下有一个neural2symbolic.log和一个symbolic2neural.log文件，读取这两个文件中的accuracy，绘制accuracy随training ratio的变化曲线
-
 import os
 import matplotlib.pyplot as plt
 

@@ -63,7 +63,7 @@
 
         - 增大pretrain规模，看到泛化趋势
         - 消融：微调带不带encoder，decode时候带不带xy，z融合LLM的方式（lora,delta,prefix）
-        - 比较生成的k相比于原先的k的好坏（更简洁？）
+        - 比较生成的k相比于原先的k的好坏（更简洁？100%更短？）
         - 建模为让task loss小于某个阈值的重建优化任务(VIB的套路)，推导出最终的三项损失之和
         - 训练完NesyVAE后，更换task model，看泛化性
         - 迭代式增强，人在回路

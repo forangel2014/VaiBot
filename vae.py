@@ -263,7 +263,8 @@ class Nesy(nn.Module):
                     "x": x_batch[i],
                     "y_true": y_batch[i],
                     "y_pred": y_pred[i],
-                    "score": evaluater(y_pred[i], y_batch[i])
+                    #"score": evaluater(y_pred[i], y_batch[i])
+                    "score": evaluater(y_pred[i], y_batch[i], x_batch[i], knowledge_batch[i])
                 }
                 for i in range(batch_size)
             ]

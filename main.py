@@ -8,10 +8,10 @@ import json
 import torch
 from torch.utils.data import DataLoader
 from datetime import datetime
-from utils import mkdir, convert_seconds, load_task_data, plot_loss_curve, tsne, create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf
+from utils import mkdir, setup_seed, convert_seconds, load_task_data, plot_loss_curve, tsne, create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf
 from tqdm import tqdm
-random.seed(73)
-torch.manual_seed(73)
+
+setup_seed(73)
 
 def train_subtask(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template):
 
@@ -426,7 +426,8 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                 "x": x_batch[i],
                 "y_true": y_batch[i],
                 "y_pred": y_pred[i],
-                "score": evaluater(y_pred[i], y_batch[i])
+                #"score": evaluater(y_pred[i], y_batch[i])
+                "score": evaluater(y_pred[i], y_batch[i], x_batch[i], knowledge_batch[i])
                 } for i in range(len(x_batch))]
 
             for result in results:
@@ -438,7 +439,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
     accuracy = num_correct_neural / num_test_neural
     log.writelines(f"neural seen task accuracy of method {method}: {accuracy} \n")
     log.flush()
-    
+
     with torch.no_grad():
 
         for batch in unseen_task_test_data_loader:
@@ -473,7 +474,8 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                 "x": x_batch[i],
                 "y_true": y_batch[i],
                 "y_pred": y_pred[i],
-                "score": evaluater(y_pred[i], y_batch[i])
+                #"score": evaluater(y_pred[i], y_batch[i])
+                "score": evaluater(y_pred[i], y_batch[i], x_batch[i], knowledge_batch[i])
                 } for i in range(len(x_batch))]
 
             for result in results:
@@ -695,12 +697,6 @@ def main(args):
         json.dump(args_dict, f, indent=4)
         f.flush()
 
-    if args.pretraining:
-        train_dataset, valid_dataset = load_pretrain_data_hf(pretrain_data_ratio=args.pretrain_data_ratio)
-        train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-        valid_data_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True)
-        print("pretraining")
-
     data = load_task_data(task=args.dataset, unseen_task_ratio=args.unseen_task_ratio, unseen_task_num=args.unseen_task_num,
                           test_sample_ratio=args.test_sample_ratio, test_sample_num=args.test_sample_num, 
                           num_words=args.num_words, num_pertask=args.num_pertask, task_fields=args.task_fields)
@@ -712,6 +708,12 @@ def main(args):
     seen_test_data_loader = DataLoader(data["seen_tasks"]["test"], batch_size=args.batch_size, shuffle=True)
     unseen_train_data_loader = DataLoader(data["unseen_tasks"]["train"], batch_size=args.batch_size, shuffle=True)
     unseen_test_data_loader = DataLoader(data["unseen_tasks"]["test"], batch_size=args.batch_size, shuffle=True)
+
+    if args.pretraining:
+        train_dataset, valid_dataset = load_pretrain_data_hf(pretrain_data_ratio=args.pretrain_data_ratio)
+        train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+        valid_data_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True)
+        print("pretraining")
 
     if args.prior == "gaussian":
         from vae import Nesy

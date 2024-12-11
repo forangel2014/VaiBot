@@ -13,7 +13,6 @@ import random
 import matplotlib.pyplot as plt
 import string
 from src.rouge import rouge_scorer
-random.seed(73)
 
 openai.api_key = "sk-GX5fQitXHKizUe4iF8Ed3375A72847A8807c9dAb0290C1Bc"
         # openai.base_url = url
@@ -29,6 +28,13 @@ def mkdir(path):
         print(f"Created directory: {path}")
     else:
         print(f"Directory already exists: {path}")
+
+def setup_seed(seed):
+     torch.manual_seed(seed)
+     torch.cuda.manual_seed_all(seed)
+     np.random.seed(seed)
+     random.seed(seed)
+     torch.backends.cudnn.deterministic = True
 
 def hook(grad, name=None):
     if name:
@@ -388,16 +394,51 @@ transformation B: {knowledge_pred}
                     while not response:
                         try:
                             response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
-                        except:
+                        except Exception as e:
+                            print(e)
                             pass
                     response = response.choices[0].message.content
                     #print(response)
                     score = 1 if "true" in response.lower() else 0
                     return score
                 
-                def neural_evaluater(y_pred, y_true):
-                    return (normalize_answer(y_pred.split('\n')[0]) == normalize_answer(y_true))
-                
+                # def neural_evaluater(y_pred, y_true):
+                #     return (normalize_answer(y_pred.split('\n')[0]) == normalize_answer(y_true))
+
+                def neural_evaluater(y_pred, y_true, x, k):
+                    messages = [
+                        {
+                        "role": "system",
+                        "content": 
+"""
+Here are an instruction, an input, an reference answer and a predicted answer.
+Please help me determine if the predicted answer is correct.
+Only return \"True\" or \"False\".                        
+"""
+                        },
+                        {
+                        "role": "user",
+                        "content": 
+f"""
+instruction: {k}
+input: {x}
+reference answer: {y_true}
+predicted answer: {y_pred}
+"""
+                        },
+                               ]
+                    response = None
+                    while not response:
+                        try:
+                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                        except Exception as e:
+                            print(e)
+                            pass
+                    response = response.choices[0].message.content
+                    #print(response)
+                    score = 1 if "true" in response.lower() else 0
+                    return score
+
                 all_data["neural_evaluater"] = neural_evaluater
                 all_data["symbolic_evaluater"] = symbolic_evaluater
 
