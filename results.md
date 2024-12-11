@@ -5,7 +5,7 @@
 | vanilla SFT | 25.69   | 37.43       |  24.59    |    0.00  |
 | TAGI      |           | -           |           |    -     |
 | ItD       | -         |             |    -      |          |
-| NesyFlow-in-domain | 26.95 | 93.58  |    5.56   |   33.33   |
+| NesyFlow-in-domain | 25.78 | 93.58  |    18.89   |   33.33   |
 | NesyFlow-pretrain * | 3.77  | 30.00   |   5.60       | 44.44        |
 | NesyFlow-pretrain (llama-2-7b => Yi-Coder-9B) | -  | 19.79   |   -       | 11.11       |
 
