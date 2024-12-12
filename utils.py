@@ -18,10 +18,6 @@ openai.api_key = "sk-GX5fQitXHKizUe4iF8Ed3375A72847A8807c9dAb0290C1Bc"
         # openai.base_url = url
 openai.base_url = 'https://chatapi.onechats.top/v1/'
 
-with open('src/data_dict.json', 'r') as f:
-    data_dict = json.load(f)
-    data_map = data_dict['data_map']
-
 def mkdir(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -275,6 +271,9 @@ transformation B: {knowledge_pred}
                 all_data["symbolic_evaluater"] = symbolic_evaluater
 
     elif task == "sni":
+        with open('src/data_dict.json', 'r') as f:
+            data_dict = json.load(f)
+            data_map = data_dict['data_map']
         
 #         prompt_template = """Please complete the following task given the input and only return the output without other words.
 # Input: {}
@@ -441,7 +440,256 @@ predicted answer: {y_pred}
 
                 all_data["neural_evaluater"] = neural_evaluater
                 all_data["symbolic_evaluater"] = symbolic_evaluater
+    elif task == "p3":
+        from src.t0_config import DATA_SPLITS_SIZES
+        def load_dataset_names(task, split):
+            with open(f'src/{task}.json', "r") as f:
+                config = json.load(f)
+            datasets = config[split]
+            return datasets
 
+        def expand_dataset_to_prompts(datasets):
+            prompt_names = list(DATA_SPLITS_SIZES.keys())
+            # select prompts corresponding the the selected datasets
+            selected_prompts = filter(
+                lambda x: any([x.startswith(item) for item in datasets]),
+                prompt_names
+            )
+            selected_prompts = list(selected_prompts)
+            return selected_prompts
+        dataset_names = load_dataset_names("t0", "train")
+        if task_fields is not None:
+            dataset_names = task_fields.split(',')
+        train_tasks = expand_dataset_to_prompts(dataset_names)
+
+        # get rule from promptsource
+        from promptsource.templates import DatasetTemplates, TemplateCollection
+        collection = TemplateCollection()
+        prompts = collection.datasets_templates
+        res = {}
+        for task in train_tasks:
+            for t in dataset_names:
+                if task.startswith(t):
+                    name = task.split(f'{t}_')[1]
+                    if t == 'paws':
+                        name = task.split(f'{t}_labeled_final_')[1]
+                    if name.endswith('_'):
+                        name = name[:-1] + ' '
+                    flag = 0
+                    for prompt in prompts.keys():
+                        # breakpoint()
+                        if prompt[1] is not None:
+                            p_name = prompt[0] + '_' + prompt[1]
+                            pp_name = prompt[0] + '/' + prompt[1]
+                        else:
+                            p_name = prompt[0]
+                            pp_name = prompt[0]
+                        if 'art' == p_name:
+                            continue
+                        if 'quora' == p_name:
+                            continue
+                        if p_name in task:
+                            flag = 1
+                            # print(prompt)
+                            if name == 'expand_reverse_task ':
+                                name = "expand (reverse task)"
+                            if name == 'Topic_Prediction_Answer_Only':
+                                name = "Topic Prediction - Answer Only"
+                            if name == 'Topic_Prediction_Question_Only':
+                                name = "Topic Prediction - Question Only"
+                            if name == 'Topic_Prediction_Question_and_Answer_Pair':
+                                name = "Topic Prediction - Question and Answer Pair"
+                            if name == 'Is_This_True ':
+                                name = "Is This True?"
+                            if name == 'Direct_Question_Closed_Book ':
+                                name = "Direct Question (Closed Book)"
+                            if name == 'Multiple_Choice_Closed_Book ':
+                                name = "Multiple Choice (Closed Book)"
+                            if name == 'PAWS_ANLI_GPT3':
+                                name = "PAWS-ANLI GPT3"
+                            if name == 'PAWS_ANLI_GPT3_no_label':
+                                name = "PAWS-ANLI GPT3-no-label"
+                            if name == 'task_description_no_label':
+                                name = "task_description-no-label"
+                            if name == 'Summarize ':
+                                name = "Summarize:"
+                            if name == 'Summarize_this_dialogue ':
+                                name = "Summarize this dialogue:"
+                            try:
+                                rules = DatasetTemplates(pp_name)
+                                rule = rules[name].jinja
+                                res[task] = {'rule': rule, 'prompt': name, 'x': pp_name}
+                            except:
+                                try:
+                                    rules = DatasetTemplates(pp_name)
+                                    if task == 'common_gen_Given_concepts_type_2':
+                                        name = 'Given concepts - type 2'
+                                    else:
+                                        name = name.replace('_', ' ')
+                                    rule = rules[name].jinja
+                                    res[task] = {'rule': rule, 'prompt': name, 'x': pp_name}
+                                except:
+                                    try:
+                                        rules = DatasetTemplates(pp_name)
+                                        name = name.replace(' ', '-')
+                                        rule = rules[name].jinja
+                                        res[task] = {'rule': rule, 'prompt': name, 'x': pp_name}
+                                    except:
+                                        breakpoint()
+                    if not flag:
+                        print("error   " + task + '  ' + t)
+                        res[task] = 'none'
+        with open('src/t0_prompt.json', 'w') as f:
+            json.dump(res, f, indent=4)
+        breakpoint()
+
+        prompt_template = "{}"
+        all_data["prompt_template"] = prompt_template
+        
+        all_task_id = list(range(1, len(train_tasks) + 1))
+        task_num = len(all_task_id)
+        print(f"task_num: {task_num}")
+        random.shuffle(all_task_id)
+        if unseen_task_ratio:
+            seen_task_num = max(round(task_num*(1-unseen_task_ratio)), 1)
+        else:
+            try:
+                seen_task_num = task_num - unseen_task_num
+            except:
+                raise Exception("Neither unseen_task_ratio nor unseen_task_num is specified")
+        task_id2task_type = dict([(id_, "seen_tasks") for id_ in all_task_id[:seen_task_num]] + [(id_, "unseen_tasks") for id_ in all_task_id[seen_task_num:]])
+        
+        for sub_task_id in range(1, len(train_tasks) + 1):
+
+            task_type = task_id2task_type[sub_task_id]
+            task_file = f"./data/{task}/tasks/{train_tasks[sub_task_id - 1].strip()}.json"
+            with open(task_file) as f:
+                sub_task_data = json.load(f)
+
+            examples = []
+            for ex in sub_task_data["Instances"]:
+                if len(ex['input']) < 20:
+                    examples.append(ex)
+                # else:
+                #     print(len(ex['input'].split(' ')))
+                if len(examples) == num_pertask:
+                    break
+            if len(examples) != num_pertask:
+                print(f"task_name: {train_tasks[sub_task_id - 1].strip()}, task_num: {len(examples)} is not enough")
+                #if len(examples) < 60:
+                continue
+            # examples = sub_task_data["Instances"][:num_pertask]
+            rule = description
+            
+            all_sample_id = list(range(len(examples)))
+            sample_num = len(all_sample_id)
+            random.shuffle(all_sample_id)
+            if test_sample_ratio:
+                train_sample_num = round(sample_num*(1-test_sample_ratio))
+            else:
+                try:
+                    train_sample_num = sample_num - test_sample_num
+                except:
+                    raise Exception("Neither test_sample_ratio nor test_sample_num is specified")
+            sample_id2split = dict([(id_, "train") for id_ in all_sample_id[:train_sample_num]] + [(id_, "test") for id_ in all_sample_id[train_sample_num:]])
+        
+            for i in range(len(examples)):
+                
+                example = examples[i]
+                split = sample_id2split[i]
+                input_ = example["input"] + "." if not example["input"][-1] in string.punctuation else example["input"]
+                output = random.choice(example["output"])
+                if output == '':
+                    continue
+                if not output[-1] in string.punctuation:
+                    output += "."
+
+                # add format to help LLM understand the task
+                input_ = f"<input>{input_}</input>"
+                output_ = f"<output>{output}</output>"
+                rule_ = f"<instruction>{rule}</instruction>"
+
+                all_data[task_type][split].append({
+                    "sub_task_id": sub_task_id,
+                    "input": input_,
+                    "target": output_,
+                    "knowledge": rule_,
+                    #"metadata": task_data,
+                })
+        
+            if sub_task_id == 1:
+                
+                def symbolic_evaluater(knowledge_pred, knowledge_true):
+                    messages = [
+                        {
+                        "role": "system",
+                        "content": 
+"""
+Here are two instructions described in natural language. 
+Please help me determine if these two instructions are equivalent.
+Only return \"True\" or \"False\".                        
+"""
+                        },
+                        {
+                        "role": "user",
+                        "content": 
+f"""
+transformation A: {knowledge_true}
+transformation B: {knowledge_pred}
+"""
+                        },
+                               ]
+                    response = None
+                    while not response:
+                        try:
+                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                        except Exception as e:
+                            print(e)
+                            pass
+                    response = response.choices[0].message.content
+                    #print(response)
+                    score = 1 if "true" in response.lower() else 0
+                    return score
+                
+                # def neural_evaluater(y_pred, y_true):
+                #     return (normalize_answer(y_pred.split('\n')[0]) == normalize_answer(y_true))
+
+                def neural_evaluater(y_pred, y_true, x, k):
+                    messages = [
+                        {
+                        "role": "system",
+                        "content": 
+"""
+Here are an instruction, an input, an reference answer and a predicted answer.
+Please help me determine if the predicted answer is correct.
+Only return \"True\" or \"False\".                        
+"""
+                        },
+                        {
+                        "role": "user",
+                        "content": 
+f"""
+instruction: {k}
+input: {x}
+reference answer: {y_true}
+predicted answer: {y_pred}
+"""
+                        },
+                               ]
+                    response = None
+                    while not response:
+                        try:
+                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                        except Exception as e:
+                            print(e)
+                            pass
+                    response = response.choices[0].message.content
+                    #print(response)
+                    score = 1 if "true" in response.lower() else 0
+                    return score
+
+                all_data["neural_evaluater"] = neural_evaluater
+                all_data["symbolic_evaluater"] = symbolic_evaluater
     else:
         raise Exception("Unknown dataset")
 
@@ -896,5 +1144,5 @@ def compute_metrics(predictions, references, xlingual=False):
     metrics = {k: round(v, 4) for k, v in metrics.items()}
     return metrics
 
-# load_task_data('sni', test_ratio=0.1, unseen_task_ratio=0.1, num_words=32, num_pertask=1000, task_fields='Translation')
-
+# load_task_data('p3', test_ratio=0.1, unseen_task_ratio=0.1, num_words=32, num_pertask=1000, task_fields=None)
+load_task_data('p3')
