@@ -6,7 +6,7 @@
 | TAGI      |           | -           |           |    -     |
 | ItD       | -         |             |    -      |          |
 | NesyFlow-in-domain | 33.26 | 85.56  |    21.11   |   44.44   |
-| NesyFlow-pretrain * | 3.77  | 30.00   |   5.60       | 44.44        |
+| NesyFlow-pretrain * | 26.84  | 30.00   |   31.11       | 44.44        |
 | NesyFlow-pretrain (llama-2-7b => Yi-Coder-9B) | -  | 19.79   |   -       | 11.11       |
 
 ### ps:
