@@ -62,7 +62,10 @@ def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_
 
     #knowledge = "<instruction>Follow the instruction and answer the question: I do not know anything.</instruction>"
     knowledge = "<instruction>Generate the output based on the given input.</instruction>"
-    knowledge_id = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
+    if args.use_knowledge_in_task.lower() == "hard":
+        knowledge_id = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
+    else:
+        knowledge_id = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=False).input_ids.to(nesy.args.encoder_device)
     input_embeds = torch.nn.Parameter(nesy.llm.encoder_model.model.embed_tokens(knowledge_id))#.repeat(embedding.shape[0], 1, 1)
 
     if args.use_knowledge_in_task.lower() == "soft":
@@ -761,8 +764,8 @@ def main(args):
                 neural2symbolic_test_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
                 symbolic2neural_test_log = open(f"{args.exp_dir}/epoch{epoch}/symbolic2neural.log", file_mode)
 
-                test_neural2symbolic(args, epoch, data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="seen task")
-                test_neural2symbolic(args, epoch, data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="unseen task")
+                #test_neural2symbolic(args, epoch, data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="seen task")
+                #test_neural2symbolic(args, epoch, data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="unseen task")
 
                 test_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="seen task test")
                 test_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="unseen task test")
