@@ -440,7 +440,6 @@ predicted answer: {y_pred}
 
                 all_data["neural_evaluater"] = neural_evaluater
                 all_data["symbolic_evaluater"] = symbolic_evaluater
-
     elif task == "p3":
         from src.t0_config import DATA_SPLITS_SIZES
         def load_dataset_names(task, split):
@@ -464,84 +463,86 @@ predicted answer: {y_pred}
         train_tasks = expand_dataset_to_prompts(dataset_names)
 
         # get rule from promptsource
-        from promptsource.templates import DatasetTemplates, TemplateCollection
-        collection = TemplateCollection()
-        prompts = collection.datasets_templates
-        res = {}
-        for task in train_tasks:
-            for t in dataset_names:
-                if task.startswith(t):
-                    name = task.split(f'{t}_')[1]
-                    if t == 'paws':
-                        name = task.split(f'{t}_labeled_final_')[1]
-                    if name.endswith('_'):
-                        name = name[:-1] + ' '
-                    flag = 0
-                    for prompt in prompts.keys():
-                        # breakpoint()
-                        if prompt[1] is not None:
-                            p_name = prompt[0] + '_' + prompt[1]
-                            pp_name = prompt[0] + '/' + prompt[1]
-                        else:
-                            p_name = prompt[0]
-                            pp_name = prompt[0]
-                        if 'art' == p_name:
-                            continue
-                        if 'quora' == p_name:
-                            continue
-                        if p_name in task:
-                            flag = 1
+        # from promptsource.templates import DatasetTemplates, TemplateCollection
+        # collection = TemplateCollection()
+        # prompts = collection.datasets_templates
+        # res = {}
+        # for task in train_tasks:
+        #     for t in dataset_names:
+        #         if task.startswith(t):
+        #             name = task.split(f'{t}_')[1]
+        #             if t == 'paws':
+        #                 name = task.split(f'{t}_labeled_final_')[1]
+        #             if name.endswith('_'):
+        #                 name = name[:-1] + ' '
+        #             flag = 0
+        #             for prompt in prompts.keys():
+        #                 # breakpoint()
+        #                 if prompt[1] is not None:
+        #                     p_name = prompt[0] + '_' + prompt[1]
+        #                     pp_name = prompt[0] + '/' + prompt[1]
+        #                 else:
+        #                     p_name = prompt[0]
+        #                     pp_name = prompt[0]
+        #                 if 'art' == p_name:
+        #                     continue
+        #                 if 'quora' == p_name:
+        #                     continue
+        #                 if p_name in task:
+        #                     flag = 1
                             # print(prompt)
-                            if name == 'expand_reverse_task ':
-                                name = "expand (reverse task)"
-                            if name == 'Topic_Prediction_Answer_Only':
-                                name = "Topic Prediction - Answer Only"
-                            if name == 'Topic_Prediction_Question_Only':
-                                name = "Topic Prediction - Question Only"
-                            if name == 'Topic_Prediction_Question_and_Answer_Pair':
-                                name = "Topic Prediction - Question and Answer Pair"
-                            if name == 'Is_This_True ':
-                                name = "Is This True?"
-                            if name == 'Direct_Question_Closed_Book ':
-                                name = "Direct Question (Closed Book)"
-                            if name == 'Multiple_Choice_Closed_Book ':
-                                name = "Multiple Choice (Closed Book)"
-                            if name == 'PAWS_ANLI_GPT3':
-                                name = "PAWS-ANLI GPT3"
-                            if name == 'PAWS_ANLI_GPT3_no_label':
-                                name = "PAWS-ANLI GPT3-no-label"
-                            if name == 'task_description_no_label':
-                                name = "task_description-no-label"
-                            if name == 'Summarize ':
-                                name = "Summarize:"
-                            if name == 'Summarize_this_dialogue ':
-                                name = "Summarize this dialogue:"
-                            try:
-                                rules = DatasetTemplates(pp_name)
-                                rule = rules[name].jinja
-                                res[task] = {'rule': rule, 'prompt': name, 'x': pp_name}
-                            except:
-                                try:
-                                    rules = DatasetTemplates(pp_name)
-                                    if task == 'common_gen_Given_concepts_type_2':
-                                        name = 'Given concepts - type 2'
-                                    else:
-                                        name = name.replace('_', ' ')
-                                    rule = rules[name].jinja
-                                    res[task] = {'rule': rule, 'prompt': name, 'x': pp_name}
-                                except:
-                                    try:
-                                        rules = DatasetTemplates(pp_name)
-                                        name = name.replace(' ', '-')
-                                        rule = rules[name].jinja
-                                        res[task] = {'rule': rule, 'prompt': name, 'x': pp_name}
-                                    except:
-                                        breakpoint()
-                    if not flag:
-                        print("error   " + task + '  ' + t)
-                        res[task] = 'none'
-        with open('src/t0_prompt.json', 'w') as f:
-            json.dump(res, f, indent=4)
+        #                     if name == 'expand_reverse_task ':
+        #                         name = "expand (reverse task)"
+        #                     if name == 'Topic_Prediction_Answer_Only':
+        #                         name = "Topic Prediction - Answer Only"
+        #                     if name == 'Topic_Prediction_Question_Only':
+        #                         name = "Topic Prediction - Question Only"
+        #                     if name == 'Topic_Prediction_Question_and_Answer_Pair':
+        #                         name = "Topic Prediction - Question and Answer Pair"
+        #                     if name == 'Is_This_True ':
+        #                         name = "Is This True?"
+        #                     if name == 'Direct_Question_Closed_Book ':
+        #                         name = "Direct Question (Closed Book)"
+        #                     if name == 'Multiple_Choice_Closed_Book ':
+        #                         name = "Multiple Choice (Closed Book)"
+        #                     if name == 'PAWS_ANLI_GPT3':
+        #                         name = "PAWS-ANLI GPT3"
+        #                     if name == 'PAWS_ANLI_GPT3_no_label':
+        #                         name = "PAWS-ANLI GPT3-no-label"
+        #                     if name == 'task_description_no_label':
+        #                         name = "task_description-no-label"
+        #                     if name == 'Summarize ':
+        #                         name = "Summarize:"
+        #                     if name == 'Summarize_this_dialogue ':
+        #                         name = "Summarize this dialogue:"
+        #                     try:
+        #                         rules = DatasetTemplates(pp_name)
+        #                         rule = rules[name].jinja
+        #                         res[task] = {'rule': rule, 'prompt': name, 'x': pp_name}
+        #                     except:
+        #                         try:
+        #                             rules = DatasetTemplates(pp_name)
+        #                             if task == 'common_gen_Given_concepts_type_2':
+        #                                 name = 'Given concepts - type 2'
+        #                             else:
+        #                                 name = name.replace('_', ' ')
+        #                             rule = rules[name].jinja
+        #                             res[task] = {'rule': rule, 'prompt': name, 'x': pp_name}
+        #                         except:
+        #                             try:
+        #                                 rules = DatasetTemplates(pp_name)
+        #                                 name = name.replace(' ', '-')
+        #                                 rule = rules[name].jinja
+        #                                 res[task] = {'rule': rule, 'prompt': name, 'x': pp_name}
+        #                             except:
+        #                                 breakpoint()
+        #             if not flag:
+        #                 print("error   " + task + '  ' + t)
+        #                 res[task] = 'none'
+        # with open('src/t0_prompt.json', 'w') as f:
+        #     json.dump(res, f, indent=4)
+        with open('src/t0_prompt.json', 'r') as f:
+            rules = json.load(f)
         breakpoint()
 
         prompt_template = "{}"
@@ -580,7 +581,7 @@ predicted answer: {y_pred}
                 #if len(examples) < 60:
                 continue
             # examples = sub_task_data["Instances"][:num_pertask]
-            rule = description
+            rule = rules[train_tasks[sub_task_id - 1].strip()]['rule']
             
             all_sample_id = list(range(len(examples)))
             sample_num = len(all_sample_id)
