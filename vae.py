@@ -171,9 +171,6 @@ class Nesy(nn.Module):
         
         batch_size = len(knowledge_batch)
 
-        if self.args.use_chat_template:
-            x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
-
         knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
         mean, log_var = self.encode(knowledge_ids)
         
@@ -200,7 +197,13 @@ class Nesy(nn.Module):
             params = sampled_latent.to(self.args.task_device)
 
         if self.args.use_knowledge_in_task.lower() in ["hard", "soft"]:
-            x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
+            if self.args.use_chat_template:
+                x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+            else:
+                x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
+        else:
+            if self.args.use_chat_template:
+                x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
 
         task_loss = self.compute_task_loss(params, x_batch, y_batch)
 
@@ -215,9 +218,15 @@ class Nesy(nn.Module):
     def eval_task(self, knowledge_batch, x_batch, y_batch, evaluater):
         
         batch_size = len(knowledge_batch)
-
-        if self.args.use_chat_template:
-            x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+        
+        if self.args.use_knowledge_in_task.lower() in ["hard", "soft"]:
+            if self.args.use_chat_template:
+                x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+            else:
+                x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
+        else:
+            if self.args.use_chat_template:
+                x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
 
         if self.args.fuse_method == "delta":
             
