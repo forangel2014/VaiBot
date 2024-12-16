@@ -1146,4 +1146,4 @@ def compute_metrics(predictions, references, xlingual=False):
     return metrics
 
 # load_task_data('p3', test_ratio=0.1, unseen_task_ratio=0.1, num_words=32, num_pertask=1000, task_fields=None)
-load_task_data('p3')
+# load_task_data('p3')

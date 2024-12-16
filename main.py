@@ -147,6 +147,9 @@ def tagi_pretrain_subtask(args, train_data, nesy, prompt_template, log):
     pretrained_params = []
     
     for task_id in tqdm(all_tasks_ids):
+
+        if task_id in os.listdir(f"{args.exp_dir}/tagi_pretrain/"):
+            continue
         
         log.writelines(f"training subtask {task_id}\n")
         log.flush()
@@ -723,9 +726,15 @@ def main(args):
 
     if args.pretraining:
         train_dataset, valid_dataset = load_pretrain_data_hf(pretrain_data_ratio=args.pretrain_data_ratio)
-        train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-        valid_data_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True)
-        print("pretraining")
+        if len(train_dataset) == 0:
+            start_epoch = 1
+            train_data_loader = None
+            valid_data_loader = None
+            print("evaluating without pretraining")
+        else:
+            train_data_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+            valid_data_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True)
+            print("pretraining")
 
     if args.prior == "gaussian":
         from vae import Nesy
@@ -879,10 +888,10 @@ if __name__ == '__main__':
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
     parser.add_argument('--fuse_method', type=str, default="p-tuning", help='the method to fuse the task model and the prior model.')
     parser.add_argument('--use_instance_in_decoder', action="store_true", default=False, help='whether to use the instance in the decoder.')
-    parser.add_argument('--use_knowledge_in_task', type=str, default="soft", help='whether to use the instance in the decoder.')
+    parser.add_argument('--use_knowledge_in_task', type=str, default="no", help='whether to use the instance in the decoder.')
     parser.add_argument('--use_trainable_task_model', action="store_true", default=False, help='whether to use the trainable task model.')
     parser.add_argument('--use_chat_template', action="store_true", default=False, help='whether to use the chat template.')
-    parser.add_argument('--indirect_finetune', action="store_true", default=True, help='whether to use the chat template.')
+    parser.add_argument('--indirect_finetune', action="store_true", default=False, help='whether to use the chat template.')
 
     parser.add_argument('--ebm_optim_method', type=str, default="entropy", help='the method to optimize the energy-based model.')
     #parser.add_argument('--ebm_optim_method', type=str, default="nce", help='name of dataset.')

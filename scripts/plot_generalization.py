@@ -55,11 +55,30 @@ for exp_name in os.listdir(exp_dir):
 pretrain_ratios, seen_neural2symbolic_accuracy, unseen_neural2symbolic_accuracy, seen_symbolic2neural_accuracy, unseen_symbolic2neural_accuracy \
 = zip(*sorted(zip(pretrain_ratios, seen_neural2symbolic_accuracy, unseen_neural2symbolic_accuracy, seen_symbolic2neural_accuracy, unseen_symbolic2neural_accuracy), key=lambda x: x[0]))
 
-plt.plot(pretrain_ratios, seen_neural2symbolic_accuracy, label="seen neural2symbolic", color='#2ecc71')
-plt.plot(pretrain_ratios, unseen_neural2symbolic_accuracy, label="unseen neural2symbolic", color='#3498db')
-plt.plot(pretrain_ratios, seen_symbolic2neural_accuracy, label="seen symbolic2neural", color='#e74c3c')
-plt.plot(pretrain_ratios, unseen_symbolic2neural_accuracy, label="unseen symbolic2neural", color='#f39c12')
+# 将seen和unseen的accuracy按0.9和0.1的比例混合，得到neural2symbolic的accuracy
+neural2symbolic_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(seen_neural2symbolic_accuracy, unseen_neural2symbolic_accuracy)]
 
-plt.legend(loc='upper right')
+# 将seen和unseen的accuracy按0.9和0.1的比例混合，得到symbolic2neural的accuracy
+symbolic2neural_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(seen_symbolic2neural_accuracy, unseen_symbolic2neural_accuracy)]
+
+# plt.plot(pretrain_ratios, seen_neural2symbolic_accuracy, label="seen neural2symbolic", color='#2ecc71')
+# plt.plot(pretrain_ratios, unseen_neural2symbolic_accuracy, label="unseen neural2symbolic", color='#3498db')
+# plt.plot(pretrain_ratios, seen_symbolic2neural_accuracy, label="seen symbolic2neural", color='#e74c3c')
+# plt.plot(pretrain_ratios, unseen_symbolic2neural_accuracy, label="unseen symbolic2neural", color='#f39c12')
+
+# 筛选所有pretrain_ratios小于0.005的样本点
+idx = [i for i, pretrain_ratio in enumerate(pretrain_ratios) if pretrain_ratio > 0.005][0]
+pretrain_ratios = pretrain_ratios[:idx]
+neural2symbolic_accuracy = neural2symbolic_accuracy[:idx]
+symbolic2neural_accuracy = symbolic2neural_accuracy[:idx]
+
+plt.plot(pretrain_ratios, neural2symbolic_accuracy, label="neural2symbolic", color='#2ecc71', marker='o')
+plt.plot(pretrain_ratios, symbolic2neural_accuracy, label="symbolic2neural", color='#e74c3c', marker='o')
+
+#横轴标签：pretrain ratio
+plt.xlabel("pretrain ratio")
+plt.ylabel("accuracy")
+
+plt.legend(loc='lower right')
 plt.savefig("accuracy.pdf")
 

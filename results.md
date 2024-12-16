@@ -6,8 +6,10 @@
 | TAGI      |           | -           |           |    -     |
 | ItD       | -         |             |    -      |          |
 | NesyFlow-in-domain | 33.26 | 85.56  |    21.11   |   44.44   |
-| NesyFlow-pretrain * | 26.84  | 30.00   |   31.11       | 44.44        |
-| NesyFlow-pretrain (llama-2-7b => Yi-Coder-9B) | -  | 19.79   |   -       | 11.11       |
+| NesyFlow-pretrain * | 30.37  | 36.36   |   32.22       | 50.00        |
+| NesyFlow-pretrain - w/o xy * | 28.77  | 0.53  |   27.78       | 0.00        |
+| NesyFlow-pretrain - w/o k * | 18.29  | 36.90  |   10.00       | 44.44        |
+| NesyFlow-pretrain - finetune w/o encoder * | 28.98  | 2.14  |   26.67       | 0.00        |
 
 ### ps:
 - Methods marked with * were not trained on seen tasks
