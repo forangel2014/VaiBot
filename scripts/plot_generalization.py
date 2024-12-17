@@ -5,80 +5,80 @@ exp_dir = "../exp_generalize"
 selected_epoch = 1
 
 pretrain_ratios = []
-seen_neural2symbolic_accuracy = []
-seen_symbolic2neural_accuracy = []
-unseen_neural2symbolic_accuracy = []
-unseen_symbolic2neural_accuracy = []
+seen_induction_accuracy = []
+seen_deduction_accuracy = []
+unseen_induction_accuracy = []
+unseen_deduction_accuracy = []
 
 for exp_name in os.listdir(exp_dir):
     exp_path = os.path.join(exp_dir, exp_name)
     train_ratio = exp_name.split("pretrain-")[1]
-    find_seen_neural2symbolic_accuracy = False
-    find_unseen_neural2symbolic_accuracy = False
-    find_seen_symbolic2neural_accuracy = False
-    find_unseen_symbolic2neural_accuracy = False
+    find_seen_induction_accuracy = False
+    find_unseen_induction_accuracy = False
+    find_seen_deduction_accuracy = False
+    find_unseen_deduction_accuracy = False
     if os.path.isdir(exp_path):
-        neural2symbolic_path = os.path.join(exp_path, f"epoch{selected_epoch}", "neural2symbolic.log")
-        symbolic2neural_path = os.path.join(exp_path, f"epoch{selected_epoch}", "symbolic2neural.log")
+        induction_path = os.path.join(exp_path, f"epoch{selected_epoch}", "neural2symbolic.log")
+        deduction_path = os.path.join(exp_path, f"epoch{selected_epoch}", "symbolic2neural.log")
         try:
-            with open(neural2symbolic_path, "r") as f:
+            with open(induction_path, "r") as f:
                 # 分别找到seen task accuracy和unseen task accuracy
                 lines = f.readlines()
                 for line in lines:
                     if "accuracy on seen task" in line:
-                        find_seen_neural2symbolic_accuracy = True
-                        this_seen_neural2symbolic_accuracy = float(line.split("samples: ")[1].split(" ")[0])
+                        find_seen_induction_accuracy = True
+                        this_seen_induction_accuracy = float(line.split("samples: ")[1].split(" ")[0])
                     elif "accuracy on unseen task" in line:
-                        find_unseen_neural2symbolic_accuracy = True
-                        this_unseen_neural2symbolic_accuracy = float(line.split("samples: ")[1].split(" ")[0])
-            with open(symbolic2neural_path, "r") as f:
+                        find_unseen_induction_accuracy = True
+                        this_unseen_induction_accuracy = float(line.split("samples: ")[1].split(" ")[0])
+            with open(deduction_path, "r") as f:
                 lines = f.readlines()
                 for line in lines:
                     if "accuracy on seen task" in line:
-                        find_seen_symbolic2neural_accuracy = True
-                        this_seen_symbolic2neural_accuracy = float(line.split("samples: ")[1].split(" ")[0])
+                        find_seen_deduction_accuracy = True
+                        this_seen_deduction_accuracy = float(line.split("samples: ")[1].split(" ")[0])
                     elif "accuracy on unseen task" in line:
-                        find_unseen_symbolic2neural_accuracy = True
-                        this_unseen_symbolic2neural_accuracy = float(line.split("samples: ")[1].split(" ")[0])
+                        find_unseen_deduction_accuracy = True
+                        this_unseen_deduction_accuracy = float(line.split("samples: ")[1].split(" ")[0])
         except Exception as e:
-            print(f"Error reading file {neural2symbolic_path} or {symbolic2neural_path}: {e}")
+            print(f"Error reading file {induction_path} or {deduction_path}: {e}")
             continue
         
-        if find_seen_neural2symbolic_accuracy and find_unseen_neural2symbolic_accuracy and find_seen_symbolic2neural_accuracy and find_unseen_symbolic2neural_accuracy:
+        if find_seen_induction_accuracy and find_unseen_induction_accuracy and find_seen_deduction_accuracy and find_unseen_deduction_accuracy:
             pretrain_ratios.append(float(train_ratio))
-            seen_neural2symbolic_accuracy.append(this_seen_neural2symbolic_accuracy)
-            unseen_neural2symbolic_accuracy.append(this_unseen_neural2symbolic_accuracy)
-            seen_symbolic2neural_accuracy.append(this_seen_symbolic2neural_accuracy)
-            unseen_symbolic2neural_accuracy.append(this_unseen_symbolic2neural_accuracy)
+            seen_induction_accuracy.append(this_seen_induction_accuracy)
+            unseen_induction_accuracy.append(this_unseen_induction_accuracy)
+            seen_deduction_accuracy.append(this_seen_deduction_accuracy)
+            unseen_deduction_accuracy.append(this_unseen_deduction_accuracy)
 
 # 将所有列表按pretrain_ratios升序排序
-pretrain_ratios, seen_neural2symbolic_accuracy, unseen_neural2symbolic_accuracy, seen_symbolic2neural_accuracy, unseen_symbolic2neural_accuracy \
-= zip(*sorted(zip(pretrain_ratios, seen_neural2symbolic_accuracy, unseen_neural2symbolic_accuracy, seen_symbolic2neural_accuracy, unseen_symbolic2neural_accuracy), key=lambda x: x[0]))
+pretrain_ratios, seen_induction_accuracy, unseen_induction_accuracy, seen_deduction_accuracy, unseen_deduction_accuracy \
+= zip(*sorted(zip(pretrain_ratios, seen_induction_accuracy, unseen_induction_accuracy, seen_deduction_accuracy, unseen_deduction_accuracy), key=lambda x: x[0]))
 
-# 将seen和unseen的accuracy按0.9和0.1的比例混合，得到neural2symbolic的accuracy
-neural2symbolic_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(seen_neural2symbolic_accuracy, unseen_neural2symbolic_accuracy)]
+# 将seen和unseen的accuracy按0.9和0.1的比例混合，得到induction的accuracy
+induction_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(seen_induction_accuracy, unseen_induction_accuracy)]
 
-# 将seen和unseen的accuracy按0.9和0.1的比例混合，得到symbolic2neural的accuracy
-symbolic2neural_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(seen_symbolic2neural_accuracy, unseen_symbolic2neural_accuracy)]
+# 将seen和unseen的accuracy按0.9和0.1的比例混合，得到deduction的accuracy
+deduction_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(seen_deduction_accuracy, unseen_deduction_accuracy)]
 
-# plt.plot(pretrain_ratios, seen_neural2symbolic_accuracy, label="seen neural2symbolic", color='#2ecc71')
-# plt.plot(pretrain_ratios, unseen_neural2symbolic_accuracy, label="unseen neural2symbolic", color='#3498db')
-# plt.plot(pretrain_ratios, seen_symbolic2neural_accuracy, label="seen symbolic2neural", color='#e74c3c')
-# plt.plot(pretrain_ratios, unseen_symbolic2neural_accuracy, label="unseen symbolic2neural", color='#f39c12')
+# plt.plot(pretrain_ratios, seen_induction_accuracy, label="seen induction", color='#2ecc71')
+# plt.plot(pretrain_ratios, unseen_induction_accuracy, label="unseen induction", color='#3498db')
+# plt.plot(pretrain_ratios, seen_deduction_accuracy, label="seen deduction", color='#e74c3c')
+# plt.plot(pretrain_ratios, unseen_deduction_accuracy, label="unseen deduction", color='#f39c12')
 
 # 筛选所有pretrain_ratios小于0.005的样本点
-idx = [i for i, pretrain_ratio in enumerate(pretrain_ratios) if pretrain_ratio > 0.005][0]
+idx = [i for i, pretrain_ratio in enumerate(pretrain_ratios) if pretrain_ratio > 0.01][0]
 pretrain_ratios = pretrain_ratios[:idx]
-neural2symbolic_accuracy = neural2symbolic_accuracy[:idx]
-symbolic2neural_accuracy = symbolic2neural_accuracy[:idx]
+induction_accuracy = induction_accuracy[:idx]
+deduction_accuracy = deduction_accuracy[:idx]
 
-plt.plot(pretrain_ratios, neural2symbolic_accuracy, label="neural2symbolic", color='#2ecc71', marker='o')
-plt.plot(pretrain_ratios, symbolic2neural_accuracy, label="symbolic2neural", color='#e74c3c', marker='o')
+plt.plot(pretrain_ratios, induction_accuracy, label="induction", color='#2ecc71', marker='o')
+plt.plot(pretrain_ratios, deduction_accuracy, label="deduction", color='#e74c3c', marker='o')
 
 #横轴标签：pretrain ratio
 plt.xlabel("pretrain ratio")
 plt.ylabel("accuracy")
 
 plt.legend(loc='lower right')
-plt.savefig("accuracy.pdf")
+plt.savefig("generalization.pdf")
 

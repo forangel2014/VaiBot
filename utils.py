@@ -45,6 +45,12 @@ def convert_seconds(seconds):
     result = f"{hours}h{minutes}m{remaining_seconds}s"
     return result
 
+def my_chat_template(messages, tokenize=None):
+    text = ""
+    for message in messages:
+        text += f"{message['role']}: {message['content']}\n"
+    return text
+
 def get_gpu_memory_usage():
     # 使用nvidia-smi命令获取显存信息
     result = subprocess.run(

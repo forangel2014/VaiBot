@@ -8,7 +8,7 @@ import json
 import torch
 from torch.utils.data import DataLoader
 from datetime import datetime
-from utils import mkdir, setup_seed, convert_seconds, load_task_data, plot_loss_curve, tsne, create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf
+from utils import mkdir, setup_seed, convert_seconds, load_task_data, plot_loss_curve, tsne, my_chat_template, create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf
 from tqdm import tqdm
 
 setup_seed(73)
@@ -413,14 +413,22 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
             x_batch = [prompt_template.format(x) for x in x_batch]
             y_batch = batch["target"]
 
-            input_message = [[{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
+            if method == "icl":
+                input_message = [[
+                                  {"role": "system", "content": "Translate the input text into English."},
+                                  {"role": "user", "content": "<input>你好，世界。<\input>"},
+                                  {"role": "assistant", "content": "<output>Hello, world.</output>"},
+                                  {"role": "system", "content": knowledge_batch[i]}, 
+                                  {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
+            else:
+                input_message = [[{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
             input_text = [nesy.llm.tokenizer.apply_chat_template(input_message[i], tokenize=False) for i in range(len(input_message))]
             input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
 
             # input_batch = [knowledge_prompt.format(knowledge_batch[i], x_batch[i]) for i in range(batch_size)]
             # input_ids = nesy.llm.tokenizer(input_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
             
-            if method == "prompting":
+            if method in ["prompting", "icl"]:
                 y_pred = nesy.llm.predict_task(input_ids)
             elif method == "finetuning":
                 if args.fuse_method == "delta":
@@ -464,11 +472,19 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
             x_batch = [prompt_template.format(x) for x in x_batch]
             y_batch = batch["target"]
 
-            input_message = [[{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
+            if method == "icl":
+                input_message = [[
+                                  {"role": "system", "content": "Translate the input text into English."},
+                                  {"role": "user", "content": "<input>你好，世界。<\input>"},
+                                  {"role": "assistant", "content": "<output>Hello, world.</output>"},
+                                  {"role": "system", "content": knowledge_batch[i]}, 
+                                  {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
+            else:
+                input_message = [[{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}] for i in range(len(x_batch))]
             input_text = [nesy.llm.tokenizer.apply_chat_template(input_message[i], tokenize=False) for i in range(len(input_message))]
             input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
             
-            if method == "prompting":
+            if method in ["prompting", "icl"]:
                 y_pred = nesy.llm.predict_task(input_ids)
             elif method == "finetuning":
                 if args.fuse_method == "delta":
@@ -510,9 +526,75 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
 
     sys_prompt = "Given the following input and output pairs, please infer the instruction."
 
-    if method == "finetuning":
+    if method == "itd":
+        # sample from p(f)
+        seen_train_data = seen_train_data_loader.dataset
+        seen_tasks_ids = list(set([sample["sub_task_id"] for sample in seen_train_data]))
+        
+        knowledge_itd = []
+        
+        for task_id in seen_tasks_ids[:5]:
+
+            seen_subtask_data = [data for data in seen_train_data if data["sub_task_id"] == task_id]
+            knowledge = seen_subtask_data[0]["knowledge"]
+
+            with torch.no_grad():
+                
+                obeserved_samples = random.sample(seen_subtask_data, 5)
+                obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
+
+                input_message = [{"role": "system", "content": sys_prompt}, 
+                                 {"role": "user", \
+                                  "content": "Input: 你好，世界。Output: Hello, world.\n \
+                                              Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
+                                              Input: 我还不是很明白。Output: I'm still not very clear.\n \
+                                              Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
+                                              Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+                                 {"role": "assistant", "content": "Translate the input text into English."},
+                                 {"role": "user", "content": obeserved_text}]
+                input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
+                input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
+
+                predicted_knowledge = nesy.llm.predict_task(input_ids)[0].split("\n")[0]
+                knowledge_itd.append(predicted_knowledge)
+        
+        # sample from p(x, y|f)
+        instance_itd = []
+        for task_id_itd, knowledge in enumerate(knowledge_itd):
+
+            task_id_itd += len(seen_tasks_ids)
+
+            with torch.no_grad():
+
+                input_message = [{"role": "system", "content": "Given the instruction, generate 5 input and output pairs."},
+                                 {"role": "user", "content": "Translate the input text into English."},
+                                 {"role": "assistant", \
+                                  "content": "Input: 你好，世界。Output: Hello, world.\n \
+                                              Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
+                                              Input: 我还不是很明白。Output: I'm still not very clear.\n \
+                                              Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
+                                              Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+                                 {"role": "user", "content": knowledge}]
+                input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
+                input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
+                instance_text = nesy.llm.predict_task(input_ids)[0]
+                instances = instance_text.split("\n")
+                for instance in instances:
+                    input_, output_ = instance.split("Output: ")
+                    input_ = input_.split("Input: ")[-1]
+                    output_ = output_.strip()
+                    instance_itd.append({
+                        "input": input_,
+                        "target": output_,
+                        "knowledge": knowledge,
+                        "sub_task_id": task_id_itd
+                        })
+
+    if method in ["finetuning", "itd"]:
 
         seen_train_data = seen_train_data_loader.dataset
+        if method == "itd":
+            seen_train_data.extend(instance_itd)
         seen_test_data = seen_test_data_loader.dataset
         seen_tasks_ids = list(set([sample["sub_task_id"] for sample in seen_train_data]))
         seen_train_data_induction = []
@@ -597,13 +679,24 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
             obeserved_samples = random.sample(seen_subtask_data, 5)
             obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
 
-            input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
+            if method == "icl":
+                input_message = [{"role": "system", "content": sys_prompt}, 
+                                 {"role": "user", "content": "Translate the input text into English."},
+                                 {"role": "assistant", \
+                                  "content": "Input: 你好，世界。Output: Hello, world.\n \
+                                              Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
+                                              Input: 我还不是很明白。Output: I'm still not very clear.\n \
+                                              Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
+                                              Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+                                 {"role": "user", "content": obeserved_text}]
+            else:
+                input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
             input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
             input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
-            if method == "prompting":
+            if method in ["prompting", "icl"]:
                 predicted_knowledge = nesy.llm.predict_task(input_ids)
-            elif method == "finetuning":
+            elif method in ["finetuning", "itd"]:
                 if args.fuse_method == "delta":
                     new_task_parameters = nesy.llm.allocate(params)
                     predicted_knowledge = nesy.llm.predict_task(input_ids, new_task_parameters)
@@ -639,16 +732,24 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
             
             obeserved_samples = random.sample(seen_subtask_data, 5)
             obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
-            #obeserved_text = "\n".join([f"The input is {data['input']}. The friend's output is {data['target']}." for data in obeserved_samples])
-            #induction_questions = prompt.format(obeserved_text)
-
-            input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
+            if method == "icl":
+                input_message = [{"role": "system", "content": sys_prompt}, 
+                                 {"role": "user", "content": "Translate the input text into English."},
+                                 {"role": "assistant", \
+                                  "content": "Input: 你好，世界。Output: Hello, world.\n \
+                                              Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
+                                              Input: 我还不是很明白。Output: I'm still not very clear.\n \
+                                              Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
+                                              Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+                                 {"role": "user", "content": obeserved_text}]
+            else:
+                input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
             input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
             input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
-            if method == "prompting":
+            if method in ["prompting", "icl"]:
                 predicted_knowledge = nesy.llm.predict_task(input_ids)
-            elif method == "finetuning":
+            elif method in ["finetuning", "itd"]:
                 if args.fuse_method == "delta":
                     new_task_parameters = nesy.llm.allocate(params)
                     predicted_knowledge = nesy.llm.predict_task(input_ids, new_task_parameters)
@@ -689,7 +790,7 @@ def main(args):
             if key not in ["exp_dir", "load_exp", "load_epoch", "encoder_device", "decoder_device", "task_device", 
                            "flow_device", "noise_device", "task_finetune_step", "task_finetune_lr", "batch_size",
                            "zero_init", "dataset", "pretraining", "valid_epoch", "save_epoch", "task_model_name_or_path",
-                           "method", "use_knowledge_in_task"]:
+                           "method", "use_knowledge_in_task", "test_sample_num"]:
                 args.__dict__[key] = loaded_args[key]
         args.load_nesy_ckpt = f"{args.load_exp}/epoch{args.load_epoch}/nesy_ckpt/"
         start_epoch = args.load_epoch
@@ -782,8 +883,8 @@ def main(args):
                 neural2symbolic_test_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
                 symbolic2neural_test_log = open(f"{args.exp_dir}/epoch{epoch}/symbolic2neural.log", file_mode)
 
-                test_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="seen task test")
-                test_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="unseen task test")
+                # test_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="seen task test")
+                # test_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="unseen task test")
 
                 test_neural2symbolic(args, epoch, data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="seen task")
                 test_neural2symbolic(args, epoch, data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="unseen task")
@@ -923,7 +1024,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
     parser.add_argument('--num_soft_token', type=int, default=10, help='max number of tokens to generate.')
     
-    #parser.add_argument('--load_exp', type=str, default="vae-pretrain-use-knowledge-in-task", help='name of dataset.')
+    #parser.add_argument('--load_exp', type=str, default="vae-pretrain", help='name of dataset.')
     parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
     parser.add_argument('--load_epoch', type=int, default=1, help='the epoch of the pretrained model.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether to ignore the existing model.')
@@ -933,7 +1034,7 @@ if __name__ == '__main__':
     parser.add_argument('--task_model_name_or_path', type=str, default=None, help='the path of the pretrained model.')
     parser.add_argument('--finetuned_model', type=str, default=None, help='the path of the finetuned model.')
     
-    parser.add_argument('--cuda_devices', type=str, default="0,1,2", help='the devices to use')
+    parser.add_argument('--cuda_devices', type=str, default="3,4,5", help='the devices to use')
     parser.add_argument('--encoder_device', type=int, default=0, help='the device to use')
     parser.add_argument('--decoder_device', type=int, default=1, help='the device to use')
     parser.add_argument('--task_device', type=int, default=2, help='the device to use')

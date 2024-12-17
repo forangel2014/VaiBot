@@ -52,6 +52,7 @@ class WrappedLLM(nn.Module):
 
         if "llama" in args.model_name_or_path.lower():
             self.tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
+            #self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
         
