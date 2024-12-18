@@ -287,7 +287,7 @@ def test_neural2symbolic(args, epoch, test_data, nesy, prompt_template, evaluate
         # subtask_test_data = [data for data in test_data if data["sub_task_id"] == task_id]
 
         subtask_data = [data for data in test_data if data["sub_task_id"] == task_id]
-        subtask_train_data = subtask_data[:-1]
+        subtask_train_data = subtask_data#[:-1]
         subtask_valid_data = subtask_data[-1:]
 
         subtask_train_data_loader = DataLoader(subtask_train_data, batch_size=args.batch_size, shuffle=True)
