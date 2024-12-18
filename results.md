@@ -2,7 +2,7 @@
 |-----------|-----------|-------------|-----------| ---------|
 |**method** (tested on the 5 unseen samples of each subtask)    | deduction    | induction    | deduction    | induction |
 | prompting * | 8.98      | 8.02      |  8.88     |    0.00  |
-| vanilla SFT | 32.94   | 33.16       |  31.90    |    0.00  |
+| vanilla SFT | 32.94   | 40.11       |  31.90    |    16.67  |
 | TAGI      |           | -           |           |    -     |
 | ItD       | -         |             |    -      |          |
 | NesyFlow-in-domain | 33.26 | 85.56  |    21.11   |   44.44   |
