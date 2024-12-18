@@ -415,7 +415,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
 
             if method == "icl":
                 input_message = [[
-                                  {"role": "system", "content": "Translate the input text into English."},
+                                  {"role": "system", "content": "<instruction>Translate the input text into English.</instruction>"},
                                   {"role": "user", "content": "<input>你好，世界。<\input>"},
                                   {"role": "assistant", "content": "<output>Hello, world.</output>"},
                                   {"role": "system", "content": knowledge_batch[i]}, 
@@ -474,7 +474,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
 
             if method == "icl":
                 input_message = [[
-                                  {"role": "system", "content": "Translate the input text into English."},
+                                  {"role": "system", "content": "<instruction>Translate the input text into English.</instruction>"},
                                   {"role": "user", "content": "<input>你好，世界。<\input>"},
                                   {"role": "assistant", "content": "<output>Hello, world.</output>"},
                                   {"role": "system", "content": knowledge_batch[i]}, 
@@ -607,13 +607,13 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
             knowledge = seen_subtask_train_data[0]["knowledge"]
 
             for _ in range(10):
-                io_sample_train = random.sample(seen_subtask_train_data, 5)
+                io_sample_train = random.sample(seen_subtask_train_data, args.test_sample_num)
                 io_text_train = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in io_sample_train])
                 seen_train_data_induction.append({
                     "knowledge": knowledge,
                     "io_text": io_text_train
                     })
-            io_sample_test = random.sample(seen_subtask_test_data, 5)
+            io_sample_test = random.sample(seen_subtask_test_data, args.test_sample_num)
             io_text_test = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in io_sample_test])
             seen_test_data_induction.append({
                 "knowledge": knowledge,
@@ -676,20 +676,21 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
         # start testing symbolic task
         with torch.no_grad():
             
-            obeserved_samples = random.sample(seen_subtask_data, 5)
-            obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
+            obeserved_samples = random.sample(seen_subtask_data, args.test_sample_num)
 
             if method == "icl":
+                obeserved_text = "\n".join([f"{data['input']}{data['target']}" for data in obeserved_samples])
                 input_message = [{"role": "system", "content": sys_prompt}, 
-                                 {"role": "user", "content": "Translate the input text into English."},
-                                 {"role": "assistant", \
-                                  "content": "Input: 你好，世界。Output: Hello, world.\n \
-                                              Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
-                                              Input: 我还不是很明白。Output: I'm still not very clear.\n \
-                                              Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
-                                              Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+                                 {"role": "user", \
+                                  "content": "<input>你好，世界。</input><output>Hello, world.</output>\n \
+                                              <input>可以介绍一下什么是机器学习吗。</input><output>Can you explain what machine learning is?</output>\n \
+                                              <input>我还不是很明白。</input><output>I'm still not very clear.</output>\n \
+                                              <input>我需要一个翻译工具。</input><output>I need a translation tool.</output>\n \
+                                              <input>你只需要一个大语言模型。</input><output>A large language model is all you need.</output>\n"},
+                                 {"role": "assistant", "content": "<instruction>Translate the input text into English.</instruction>"},
                                  {"role": "user", "content": obeserved_text}]
             else:
+                obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
                 input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
             input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
             input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
@@ -730,20 +731,23 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
         # start testing symbolic task
         with torch.no_grad():
             
-            obeserved_samples = random.sample(seen_subtask_data, 5)
-            obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
+            obeserved_samples = random.sample(unseen_subtask_data, args.test_sample_num)
+
             if method == "icl":
+                obeserved_text = "\n".join([f"{data['input']}{data['target']}" for data in obeserved_samples])
                 input_message = [{"role": "system", "content": sys_prompt}, 
-                                 {"role": "user", "content": "Translate the input text into English."},
-                                 {"role": "assistant", \
-                                  "content": "Input: 你好，世界。Output: Hello, world.\n \
-                                              Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
-                                              Input: 我还不是很明白。Output: I'm still not very clear.\n \
-                                              Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
-                                              Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+                                 {"role": "user", \
+                                  "content": "<input>你好，世界。</input><output>Hello, world.</output>\n \
+                                              <input>可以介绍一下什么是机器学习吗。</input><output>Can you explain what machine learning is?</output>\n \
+                                              <input>我还不是很明白。</input><output>I'm still not very clear.</output>\n \
+                                              <input>我需要一个翻译工具。</input><output>I need a translation tool.</output>\n \
+                                              <input>你只需要一个大语言模型。</input><output>A large language model is all you need.</output>\n"},
+                                 {"role": "assistant", "content": "<instruction>Translate the input text into English.</instruction>"},
                                  {"role": "user", "content": obeserved_text}]
             else:
+                obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
                 input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
+
             input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
             input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
