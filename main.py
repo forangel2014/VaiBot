@@ -794,7 +794,7 @@ def main(args):
             if key not in ["exp_dir", "load_exp", "load_epoch", "encoder_device", "decoder_device", "task_device", 
                            "flow_device", "noise_device", "task_finetune_step", "task_finetune_lr", "batch_size",
                            "zero_init", "dataset", "pretraining", "valid_epoch", "save_epoch", "task_model_name_or_path",
-                           "method", "use_knowledge_in_task", "test_sample_num"]:
+                           "method", "use_knowledge_in_task", "test_sample_num", "dataset"]:
                 args.__dict__[key] = loaded_args[key]
         args.load_nesy_ckpt = f"{args.load_exp}/epoch{args.load_epoch}/nesy_ckpt/"
         start_epoch = args.load_epoch
