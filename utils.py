@@ -235,7 +235,7 @@ def load_task_data(task, unseen_task_ratio=None, unseen_task_num=None, test_samp
                 
                 output_regex = sub_task_data["output_regex"]
                 
-                def neural_evaluater(y_pred, y_true):
+                def neural_evaluater(y_pred, y_true, x, k):
                     matched = re.findall(output_regex, y_pred)
                     if len(matched):
                         return int(matched[0] == str(y_true))
@@ -446,7 +446,172 @@ predicted answer: {y_pred}
 
                 all_data["neural_evaluater"] = neural_evaluater
                 all_data["symbolic_evaluater"] = symbolic_evaluater
+
+
+    elif task == "instruction_induction":
+        train_tasks = []
+        for task in os.listdir('data/instruction_induction/annotations'):
+            train_tasks.append(task.split('.json')[0])
+        
+#         prompt_template = """Please complete the following task given the input and only return the output without other words.
+# Input: {}
+# Output: """
+
+        prompt_template = "{}"
+        all_data["prompt_template"] = prompt_template
                 
+        all_task_id = list(range(1, len(train_tasks) + 1))
+        task_num = len(all_task_id)
+        print(f"task_num: {task_num}")
+        random.shuffle(all_task_id)
+        if unseen_task_ratio:
+            seen_task_num = max(round(task_num*(1-unseen_task_ratio)), 1)
+        else:
+            try:
+                seen_task_num = task_num - unseen_task_num
+            except:
+                raise Exception("Neither unseen_task_ratio nor unseen_task_num is specified")
+        task_id2task_type = dict([(id_, "seen_tasks") for id_ in all_task_id[:seen_task_num]] + [(id_, "unseen_tasks") for id_ in all_task_id[seen_task_num:]])
+        
+        for sub_task_id in range(1, len(train_tasks) + 1):
+
+            task_type = task_id2task_type[sub_task_id]
+            task_file = f"data/instruction_induction/raw/execute/{train_tasks[sub_task_id - 1]}.json"
+            with open(task_file) as f:
+                sub_task_data_execute = json.load(f)
+            task_file = f"data/instruction_induction/raw/induce/{train_tasks[sub_task_id - 1]}.json"
+            with open(task_file) as f:
+                sub_task_data_induce = json.load(f)
+            sub_task_data = list(sub_task_data_execute["examples"].values()) + list(sub_task_data_induce["examples"].values())
+
+            knowledge_file = f"data/instruction_induction/annotations/{train_tasks[sub_task_id - 1]}.json"
+            with open(knowledge_file) as f:
+                knowledge_data = json.load(f)
+            knowledge = knowledge_data['annotations'][0]
+            examples = sub_task_data
+            rule = knowledge
+
+            all_sample_id = list(range(len(examples)))
+            sample_num = len(all_sample_id)
+            random.shuffle(all_sample_id)
+            if test_sample_ratio:
+                train_sample_num = round(sample_num*(1-test_sample_ratio))
+            else:
+                try:
+                    train_sample_num = sample_num - test_sample_num
+                except:
+                    raise Exception("Neither test_sample_ratio nor test_sample_num is specified")
+            sample_id2split = dict([(id_, "train") for id_ in all_sample_id[:train_sample_num]] + [(id_, "test") for id_ in all_sample_id[train_sample_num:]])
+        
+            for i in range(len(examples)):
+                
+                example = examples[i]
+                split = sample_id2split[i]
+                if "input" in example.keys():
+                    input_ = example["input"] + "." if not example["input"][-1] in string.punctuation else example["input"]
+                    output = example["output"]
+                elif "cause" in example.keys():
+                    input_ = example["cause"]
+                    output = example["effect"]
+                elif "concept" in example.keys():
+                    input_ = ", ".join(example["items"])
+                    output = example["concept"]
+                else:
+                    raise Exception("No input found in the example")
+                if output == '':
+                    continue
+                if not output[-1] in string.punctuation:
+                    output += "."
+
+                # add format to help LLM understand the task
+                input_ = f"<input>{input_}</input>"
+                output_ = f"<output>{output}</output>"
+                rule_ = f"<instruction>{rule}</instruction>"
+
+                all_data[task_type][split].append({
+                    "sub_task_id": sub_task_id,
+                    "input": input_,
+                    "target": output_,
+                    "knowledge": rule_,
+                    #"metadata": task_data,
+                })
+        
+            if sub_task_id == 1:
+                
+                def symbolic_evaluater(knowledge_pred, knowledge_true):
+                    messages = [
+                        {
+                        "role": "system",
+                        "content": 
+"""
+Here are two instructions described in natural language. 
+Please help me determine if these two instructions are equivalent.
+Only return \"True\" or \"False\".                        
+"""
+                        },
+                        {
+                        "role": "user",
+                        "content": 
+f"""
+transformation A: {knowledge_true}
+transformation B: {knowledge_pred}
+"""
+                        },
+                               ]
+                    response = None
+                    while not response:
+                        try:
+                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                        except Exception as e:
+                            print(e)
+                            pass
+                    response = response.choices[0].message.content
+                    #print(response)
+                    score = 1 if "true" in response.lower() else 0
+                    return score
+                
+                # def neural_evaluater(y_pred, y_true):
+                #     return (normalize_answer(y_pred.split('\n')[0]) == normalize_answer(y_true))
+
+                def neural_evaluater(y_pred, y_true, x, k):
+                    messages = [
+                        {
+                        "role": "system",
+                        "content": 
+"""
+Here are an instruction, an input, an reference answer and a predicted answer.
+Please help me determine if the predicted answer is correct.
+Only return \"True\" or \"False\".                        
+"""
+                        },
+                        {
+                        "role": "user",
+                        "content": 
+f"""
+instruction: {k}
+input: {x}
+reference answer: {y_true}
+predicted answer: {y_pred}
+"""
+                        },
+                               ]
+                    response = None
+                    while not response:
+                        try:
+                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                        except Exception as e:
+                            print(e)
+                            pass
+                    response = response.choices[0].message.content
+                    #print(response)
+                    score = 1 if "true" in response.lower() else 0
+                    return score
+
+                all_data["neural_evaluater"] = neural_evaluater
+                all_data["symbolic_evaluater"] = symbolic_evaluater
+
+
+
     elif task == "p3":
         from src.t0_config import DATA_SPLITS_SIZES
         def load_dataset_names(task, split):
