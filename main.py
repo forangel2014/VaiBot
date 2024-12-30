@@ -982,7 +982,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="instruction_induction", help='name of dataset.')
+    parser.add_argument('--dataset', type=str, default="p3", help='name of dataset.')
     parser.add_argument('--meta_exp_dir', type=str, default="./exp", help='the directory to save all the experiment results.')
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
@@ -1058,7 +1058,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_sample_ratio', type=float, default=None)
     parser.add_argument('--test_sample_num', type=int, default=5)
     parser.add_argument('--pretrain_data_ratio', type=float, default=1.0)
-    parser.add_argument('--num_pertask', type=int, default=27)
+    parser.add_argument('--num_pertask', type=int, default=25)
     parser.add_argument('--task_fields', type=str, default=None)
 
     args = parser.parse_args()

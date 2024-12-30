@@ -613,6 +613,7 @@ predicted answer: {y_pred}
 
 
     elif task == "p3":
+        """
         from src.t0_config import DATA_SPLITS_SIZES
         def load_dataset_names(task, split):
             with open(f'src/{task}.json', "r") as f:
@@ -716,9 +717,6 @@ predicted answer: {y_pred}
         with open('src/t0_prompt.json', 'r') as f:
             rules = json.load(f)
         # breakpoint()
-
-        prompt_template = "{}"
-        all_data["prompt_template"] = prompt_template
         
         all_task_id = list(range(1, len(train_tasks) + 1))
         task_num = len(all_task_id)
@@ -733,17 +731,27 @@ predicted answer: {y_pred}
                 raise Exception("Neither unseen_task_ratio nor unseen_task_num is specified")
         task_id2task_type = dict([(id_, "seen_tasks") for id_ in all_task_id[:seen_task_num]] + [(id_, "unseen_tasks") for id_ in all_task_id[seen_task_num:]])
         
-        for sub_task_id in range(1, len(train_tasks) + 1):
+        for sub_task_id in tqdm(range(1, len(train_tasks) + 1)):
+
+            rule = rules[train_tasks[sub_task_id - 1].strip()]['rule']
+            rule = re.sub(r'{%.*?%}', '', rule)
+            rule = rule.split("|||")[0]
+            # 删除多余的换行符
+            # print(rule)
 
             task_type = task_id2task_type[sub_task_id]
-            task_file = f"./data/{task}/tasks/{train_tasks[sub_task_id - 1].strip()}.json"
+            task_file = f"../dataset/datadict/{train_tasks[sub_task_id - 1].strip()}/{train_tasks[sub_task_id - 1].strip()}_train.json"
             with open(task_file) as f:
                 sub_task_data = json.load(f)
-
+            sub_task_data = [{'input': sub_task_data[0][i], 'output': sub_task_data[1][i]} for i in range(len(sub_task_data[0]))]
             examples = []
-            for ex in sub_task_data["Instances"]:
-                if len(ex['input']) < 20:
-                    examples.append(ex)
+            random.shuffle(sub_task_data)
+            for ex in tqdm(sub_task_data):
+                rule_new, input_ = match_p3(rule, ex['input'])
+                output_ = ex['output'].strip("\n")
+
+                if len(ex['input']) < 1000:
+                    examples.append({'input': input_, 'output': output_})
                 # else:
                 #     print(len(ex['input'].split(' ')))
                 if len(examples) == num_pertask:
@@ -753,8 +761,7 @@ predicted answer: {y_pred}
                 #if len(examples) < 60:
                 continue
             # examples = sub_task_data["Instances"][:num_pertask]
-            rule = rules[train_tasks[sub_task_id - 1].strip()]['rule']
-            
+
             all_sample_id = list(range(len(examples)))
             sample_num = len(all_sample_id)
             random.shuffle(all_sample_id)
@@ -772,7 +779,7 @@ predicted answer: {y_pred}
                 example = examples[i]
                 split = sample_id2split[i]
                 input_ = example["input"] + "." if not example["input"][-1] in string.punctuation else example["input"]
-                output = random.choice(example["output"])
+                output = example["output"]#random.choice(example["output"])
                 if output == '':
                     continue
                 if not output[-1] in string.punctuation:
@@ -781,7 +788,7 @@ predicted answer: {y_pred}
                 # add format to help LLM understand the task
                 input_ = f"<input>{input_}</input>"
                 output_ = f"<output>{output}</output>"
-                rule_ = f"<instruction>{rule}</instruction>"
+                rule_ = f"<instruction>{rule_new}</instruction>"
 
                 all_data[task_type][split].append({
                     "sub_task_id": sub_task_id,
@@ -790,84 +797,93 @@ predicted answer: {y_pred}
                     "knowledge": rule_,
                     #"metadata": task_data,
                 })
-        
-            if sub_task_id == 1:
-                
-                def symbolic_evaluater(knowledge_pred, knowledge_true):
-                    messages = [
-                        {
-                        "role": "system",
-                        "content": 
+        """
+
+        def symbolic_evaluater(knowledge_pred, knowledge_true):
+            messages = [
+                {
+                "role": "system",
+                "content": 
 """
 Here are two instructions described in natural language. 
 Please help me determine if these two instructions are equivalent.
 Only return \"True\" or \"False\".                        
 """
-                        },
-                        {
-                        "role": "user",
-                        "content": 
+                },
+                {
+                "role": "user",
+                "content": 
 f"""
 transformation A: {knowledge_true}
 transformation B: {knowledge_pred}
 """
-                        },
-                               ]
-                    response = None
-                    while not response:
-                        try:
-                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
-                        except Exception as e:
-                            print(e)
-                            pass
-                    response = response.choices[0].message.content
-                    #print(response)
-                    score = 1 if "true" in response.lower() else 0
-                    return score
-                
-                # def neural_evaluater(y_pred, y_true):
-                #     return (normalize_answer(y_pred.split('\n')[0]) == normalize_answer(y_true))
+                },
+                        ]
+            response = None
+            while not response:
+                try:
+                    response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                except Exception as e:
+                    print(e)
+                    pass
+            response = response.choices[0].message.content
+            #print(response)
+            score = 1 if "true" in response.lower() else 0
+            return score
+        
+        # def neural_evaluater(y_pred, y_true):
+        #     return (normalize_answer(y_pred.split('\n')[0]) == normalize_answer(y_true))
 
-                def neural_evaluater(y_pred, y_true, x, k):
-                    messages = [
-                        {
-                        "role": "system",
-                        "content": 
+        def neural_evaluater(y_pred, y_true, x, k):
+            messages = [
+                {
+                "role": "system",
+                "content": 
 """
 Here are an instruction, an input, an reference answer and a predicted answer.
 Please help me determine if the predicted answer is correct.
 Only return \"True\" or \"False\".                        
 """
-                        },
-                        {
-                        "role": "user",
-                        "content": 
+                },
+                {
+                "role": "user",
+                "content": 
 f"""
 instruction: {k}
 input: {x}
 reference answer: {y_true}
 predicted answer: {y_pred}
 """
-                        },
-                               ]
-                    response = None
-                    while not response:
-                        try:
-                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
-                        except Exception as e:
-                            print(e)
-                            pass
-                    response = response.choices[0].message.content
-                    #print(response)
-                    score = 1 if "true" in response.lower() else 0
-                    return score
+                },
+                        ]
+            response = None
+            while not response:
+                try:
+                    response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                except Exception as e:
+                    print(e)
+                    pass
+            response = response.choices[0].message.content
+            #print(response)
+            score = 1 if "true" in response.lower() else 0
+            return score
 
-                all_data["neural_evaluater"] = neural_evaluater
-                all_data["symbolic_evaluater"] = symbolic_evaluater
+        all_data["seen_tasks"] = json.load(open(f"./data/{task}_seen_tasks.json", "r"))
+        all_data["unseen_tasks"] = json.load(open(f"./data/{task}_unseen_tasks.json", "r"))
+        seen_task_num = len(all_data["seen_tasks"])
+        task_num = len(all_data["seen_tasks"]) + len(all_data["unseen_tasks"])
+        #json.dump(all_data["seen_tasks"], open(f"./data/{task}_seen_tasks.json", "w"))
+        #json.dump(all_data["unseen_tasks"], open(f"./data/{task}_unseen_tasks.json", "w"))
+        prompt_template = "{}"
+        all_data["prompt_template"] = prompt_template
+        all_data["neural_evaluater"] = neural_evaluater
+        all_data["symbolic_evaluater"] = symbolic_evaluater
+
     else:
         raise Exception("Unknown dataset")
 
-
+    # json.dump(all_data["seen_tasks"], open(f"./data/{task}_seen_tasks.json", "w"))
+    # json.dump(all_data["unseen_tasks"], open(f"./data/{task}_unseen_tasks.json", "w"))
     all_data["seen_task_num"] = seen_task_num
     all_data["task_num"] = task_num
     print(f"seen_tasks: {seen_task_num}, unseen_tasks: {task_num - seen_task_num}")
@@ -881,6 +897,26 @@ def load_pretrain_data_hf(pretrain_data_ratio, valid_ratio=0.1, valid_num=None, 
     mkdir("./data/pretrain")
 
     all_samples = []
+
+    # print("loading: Symbol-LLM/Symbolic_Collection")
+    # path = "Symbol-LLM/Symbolic_Collection"
+    # if load_from_local:
+    #     dataset_samples = json.load(open("./data/pretrain/Symbol-LLM-Symbolic_Collection.json"))
+    # else:
+    #     dataset = datasets.load_dataset(path)
+    #     dataset_samples = []
+    #     for sample in tqdm(list(dataset["train"])[:10000]):
+    #         my_sample = {
+    #             "knowledge": sample["instruction"],
+    #             "input": sample["input"],
+    #             "target": sample["output"],
+    #         }
+    #         dataset_samples.append(my_sample)
+    # print(f"有效样本数量 (Symbol-LLM-Symbolic_Collection): {len(dataset_samples)}")  
+    # all_samples.extend(dataset_samples)
+    # if save:
+    #     json.dump(dataset_samples, open("./data/pretrain/Symbol-LLM-Symbolic_Collection.json", "w"))
+
 
     print("loading: manythings-translations-alpaca")
     path = "xzuyn/manythings-translations-alpaca"
@@ -1270,6 +1306,26 @@ def normalize_answer(s):
 
     return white_space_fix(remove_punc(lower(remove_html(s))))
 
+def match_p3(rule, input_):
+    # 搜索rule中所有{{}}的模式
+    pattern = r'{{.*?}}'
+    matches = re.findall(pattern, rule)
+    # 对于rule，将{{}}中的内容去掉
+    idxs = [rule.find(match) for match in matches]
+    rule_pieces = []
+    for i in range(len(idxs)):
+        if i == 0:
+            rule_pieces.append(rule[:idxs[i]])
+        else:
+            rule_pieces.append(rule[idxs[i-1]+len(matches[i-1]):idxs[i]])
+    rule_pieces.append(rule[idxs[-1]+len(matches[-1]):])
+    # 丢弃少于两个单词的rule_pieces
+    rule_pieces = [piece for piece in rule_pieces if len(piece.split()) > 1]
+    rule = "".join(rule_pieces)
+    for rule_piece in rule_pieces:
+        input_ = input_.replace(rule_piece, "")
+    return rule, input_
+
 def exact_match_score(prediction, ground_truth, xlingual=False):
     return (normalize_answer(prediction) == normalize_answer(ground_truth))
 
@@ -1280,7 +1336,6 @@ def rouge1_score(prediction, ground_truth, xlingual=False):
         scorer = rouge_scorer.RougeScorer(['rouge1'], use_stemmer=True)
     scores = scorer.score(prediction=prediction, target=ground_truth)
     return scores["rouge1"].fmeasure
-
 
 def rougeL_score(prediction, ground_truth, xlingual=False):
     if xlingual:

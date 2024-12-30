@@ -5,6 +5,7 @@ bash install.sh
 cd ..
 
 meta_exp_dir="exp"
+exp_name="debug"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
