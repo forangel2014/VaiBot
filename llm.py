@@ -237,9 +237,7 @@ class WrappedLLM(nn.Module):
         return outputs[0]#.float()
 
     def solve_task(self, x_id, y_id, new_task_parameters, reduce=True):
-        
-        batch_size = new_task_parameters.shape[0]
-        
+                
         if self.args.fuse_method == "delta":
         
             input_ids = torch.cat((x_id, y_id), dim=1)
@@ -250,7 +248,9 @@ class WrappedLLM(nn.Module):
             outputs = self.task_model(input_ids=[input_ids, new_task_parameters], labels=labels)
 
         elif self.args.fuse_method == "p-tuning":
-            
+
+            batch_size = new_task_parameters.shape[0]
+
             input_ids = torch.cat((x_id, y_id), dim=1)
             if self.args.use_trainable_task_model:
                 inputs_embeds = self.task_model.model.model.embed_tokens(input_ids)

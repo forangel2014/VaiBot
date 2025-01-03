@@ -774,7 +774,6 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
     log.writelines(f"symbolic unseen task accuracy of method {method}: {accuracy} \n")
     log.flush()
 
-
 def main(args):
 
     if args.exp_name is None:
@@ -805,7 +804,7 @@ def main(args):
         start_epoch = 0
         file_mode = "w"
 
-    if args.fuse_method == "p-tuning":
+    if args.fuse_method in ["p-tuning", "delta"]:
         from transformers import AutoConfig
         task_model_config = AutoConfig.from_pretrained(args.model_name_or_path)
         args.latent_size = args.num_soft_token * task_model_config.hidden_size
