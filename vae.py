@@ -17,7 +17,7 @@ class Nesy(nn.Module):
         self.hidden_size = self.llm.config.hidden_size
         self.latent_size = self.args.latent_size
         
-        if args.method == "nesy":
+        if args.method in ["nesy", "nesy_iterative"]:
             
             self.encoder_mlp = nn.Sequential(
                 nn.Linear(self.hidden_size, self.hidden_size),
@@ -215,9 +215,12 @@ class Nesy(nn.Module):
 
         return reg_loss, recon_loss, task_loss
 
-    def eval_task(self, knowledge_batch, x_batch, y_batch, evaluater):
+    def eval_task(self, knowledge_batch, x_batch, y_batch, evaluater, knowledge_groundtruth=None):
         
         batch_size = len(knowledge_batch)
+
+        if knowledge_groundtruth is None:
+            knowledge_groundtruth = knowledge_batch
         
         if self.args.use_knowledge_in_task.lower() in ["hard", "soft"]:
             if self.args.use_chat_template:
@@ -246,7 +249,7 @@ class Nesy(nn.Module):
                 y_pred = self.llm.predict_task(x_id, new_task_parameters)
 
                 results.append({
-                    "knowledge": knowledge_batch[i],
+                    "knowledge": knowledge_groundtruth[i],
                     "x": x_batch[i],
                     "y_true": y_batch[i],
                     "y_pred": y_pred,
@@ -268,12 +271,12 @@ class Nesy(nn.Module):
             
             results = [
                 {
-                    "knowledge": knowledge_batch[i],
+                    "knowledge": knowledge_groundtruth[i],
                     "x": x_batch[i],
                     "y_true": y_batch[i],
                     "y_pred": y_pred[i],
                     #"score": evaluater(y_pred[i], y_batch[i])
-                    "score": evaluater(y_pred[i], y_batch[i], x_batch[i], knowledge_batch[i])
+                    "score": evaluater(y_pred[i], y_batch[i], x_batch[i], knowledge_groundtruth[i])
                 }
                 for i in range(batch_size)
             ]

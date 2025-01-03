@@ -59,7 +59,7 @@ class WrappedLLM(nn.Module):
         self.tokenizer.padding_side = "left"
         self.tokenizer.pad_token_id = 0
 
-        if args.method in "nesy":
+        if args.method in ["nesy", "nesy_iterative"]:
 
             self.encoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
                                                             device_map=args.encoder_device,#"auto",

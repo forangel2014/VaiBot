@@ -1,7 +1,6 @@
 import os
 import time
 import shutil
-#os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
 import argparse
 import random
 import json
@@ -774,6 +773,105 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
     log.writelines(f"symbolic unseen task accuracy of method {method}: {accuracy} \n")
     log.flush()
 
+def iterative_inference(args, unseen_train_data_loader, unseen_test_data_loader, nesy, prompt_template, evaluater, log):
+
+    unseen_train_data = unseen_train_data_loader.dataset
+    unseen_test_data = unseen_test_data_loader.dataset
+    unseen_tasks_ids = list(set([sample["sub_task_id"] for sample in unseen_train_data]))
+    test_task_id = random.choice(unseen_tasks_ids)
+
+    test_subtask_train_data = [data for data in unseen_train_data if data["sub_task_id"] == test_task_id]
+    test_subtask_test_data = [data for data in unseen_test_data if data["sub_task_id"] == test_task_id]
+    test_subtask_train_dataloader = DataLoader(test_subtask_train_data, batch_size=args.batch_size, shuffle=True)
+    test_subtask_test_dataloader = DataLoader(test_subtask_test_data, batch_size=args.batch_size, shuffle=True)
+    knowledge_groundtruth = test_subtask_train_data[0]["knowledge"]
+
+    log.writelines(f"selected task: {test_task_id} \n")
+    log.writelines(f"x sample: {test_subtask_train_data[0]['input']} \n")
+    log.writelines(f"y sample: {test_subtask_train_data[0]['target']} \n")
+    log.writelines(f"knowledge_groundtruth: {knowledge_groundtruth} \n")
+    log.flush()
+
+    def test():
+
+        num_correct = 0
+        num_test = 0
+        for batch in test_subtask_test_dataloader:
+            
+            with torch.no_grad():
+                knowledge_batch = [knowledge] * len(batch["input"])
+                x_batch = batch["input"]
+                x_batch = [prompt_template.format(x) for x in x_batch]
+                y_batch = batch["target"]
+
+                results = nesy.eval_task(knowledge_batch, x_batch, y_batch, evaluater, knowledge_groundtruth=[knowledge_groundtruth] * len(x_batch))
+                for result in results:
+                    log.writelines(f"{json.dumps(result, indent=4)}\n")
+                    num_correct += result["score"]
+                    num_test += 1
+                    log.flush()
+
+        accuracy = num_correct / num_test
+
+        return accuracy
+
+    #迭代次数
+    knowledge = "<instruction>I don't know anything.</instruction>"
+
+    for iter_num in range(10):
+
+        log.writelines(f"neural inference iter {iter_num} with knowledge {knowledge} \n")
+        accuracy = test()
+        log.writelines(f"neural accuracy: {accuracy} \n")
+        log.flush()
+
+        log.writelines(f"neural inference iter {iter_num} with finetuning on task data \n")
+        if args.use_knowledge_in_task.lower() == "hard":
+            knowledge_id = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
+        else:
+            knowledge_id = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=False).input_ids.to(nesy.args.encoder_device)
+        input_embeds = torch.nn.Parameter(nesy.llm.encoder_model.model.embed_tokens(knowledge_id))#.repeat(embedding.shape[0], 1, 1)
+
+        if args.use_knowledge_in_task.lower() == "soft":
+            optimizer_lr = args.lr
+        else:
+            optimizer_lr = args.task_finetune_lr
+        optimizer = torch.optim.Adam([input_embeds], lr=optimizer_lr)
+        for batch in test_subtask_train_dataloader:
+            knowledge_batch = [knowledge] * len(batch["input"])
+            x_batch = batch["input"]
+            y_batch = batch["target"]
+            optimizer.zero_grad()
+            x_batch = batch["input"]
+            x_batch = [prompt_template.format(x) for x in x_batch]
+            y_batch = batch["target"]
+            params, _ = nesy.encode(input_embeds)
+            params = params.to(nesy.args.task_device)
+            expanded_params = params.repeat_interleave(len(x_batch), dim=0)
+            task_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch) #* args.task_loss_weight + args.reg_loss_weight * params.norm(1, dim=1).mean() / args.latent_size
+            task_loss.backward()
+            optimizer.step()
+
+        accuracy = test()
+        log.writelines(f"neural accuracy: {accuracy} \n")
+        log.flush()
+
+        log.writelines(f"induction iter {iter_num} \n")
+        params, _ = nesy.encode(input_embeds)
+        if nesy.args.use_instance_in_decoder:
+            batch = random.choice(test_subtask_train_dataloader.dataset)
+            x = batch["input"]
+            y = batch["target"]
+            instance_text = f"input: {x}, target: {y}. This task is to:"
+            print(instance_text)
+            instance_ids = nesy.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.decoder_device)
+        else:
+            instance_ids = None
+        knowledge = nesy.predict_knowledge(params.to(args.decoder_device), sample_from_guassian=False, instance=instance_ids)
+        log.writelines(f"induced knowledge: {knowledge} \n")
+        log.flush()
+
+
 def main(args):
 
     if args.exp_name is None:
@@ -959,6 +1057,22 @@ def main(args):
                     info = get_gpu_memory_usage()
                     train_log.writelines(f"{info}\n")
                     train_log.flush()
+
+    elif args.method == "nesy_iterative":
+        import string
+        synthetic_data = []
+        for _ in range(100):
+            #随机生成一个大小写字母构成的字符串
+            input_ = "".join(random.choices(string.ascii_letters, k=10))
+            #输出为逆转大小写
+            output_ = input_.swapcase()
+            synthetic_data.append({"input": input_, "target": output_, "sub_task_id": 0, "knowledge": "reverse the case of the input"})
+        random.shuffle(synthetic_data)
+        unseen_train_data_loader = DataLoader(synthetic_data[:90], batch_size=args.batch_size, shuffle=True)
+        unseen_test_data_loader = DataLoader(synthetic_data[90:], batch_size=args.batch_size, shuffle=True)
+
+        log = open(f"{args.exp_dir}/iterative.log", "w")
+        iterative_inference(args, unseen_train_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, log)
 
     elif args.method == "tagi_pretrain":
         
