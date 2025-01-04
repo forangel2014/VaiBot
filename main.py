@@ -5,10 +5,15 @@ import argparse
 import random
 import json
 import torch
+import numpy as np
+import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from datetime import datetime
 from utils import mkdir, setup_seed, convert_seconds, load_task_data, plot_loss_curve, tsne, my_chat_template, create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf
 from tqdm import tqdm
+from sklearn.manifold import TSNE
+import plotly.express as px
+import pandas as pd
 
 setup_seed(73)
 
@@ -871,6 +876,53 @@ def iterative_inference(args, unseen_train_data_loader, unseen_test_data_loader,
         log.writelines(f"induced knowledge: {knowledge} \n")
         log.flush()
 
+def visualize_knowledge(args, epoch, seen_test_data, unseen_test_data, nesy, prompt_template, evaluater, name):
+
+    all_tasks_ids = list(set([sample["sub_task_id"] for sample in seen_test_data]))
+
+    #all_tasks_ids = random.sample(all_tasks_ids, 10)
+
+    num_correct_symbolic = 0
+    num_test_symbolic = 0
+
+    all_groundtruth_knowledge = []
+    all_encoded_knowledge = []
+
+    with torch.no_grad():
+
+        for task_id in tqdm(all_tasks_ids):
+
+            # subtask_train_data = [data for data in train_data if data["sub_task_id"] == task_id]
+            # subtask_test_data = [data for data in test_data if data["sub_task_id"] == task_id]
+
+            subtask_data = [data for data in seen_test_data if data["sub_task_id"] == task_id]
+            subtask_train_data = subtask_data#[:-1]
+            subtask_valid_data = subtask_data[-1:]
+
+            subtask_train_data_loader = DataLoader(subtask_train_data, batch_size=args.batch_size, shuffle=True)
+            subtask_valid_data_loader = DataLoader(subtask_valid_data, batch_size=args.batch_size, shuffle=True)
+            knowledge = subtask_valid_data[0]["knowledge"]
+            all_groundtruth_knowledge.append(knowledge)
+
+            knowledge_ids = nesy.llm.tokenizer(knowledge, return_tensors="pt").input_ids.to(nesy.args.encoder_device)
+            encoded_mean, encoded_logvar = nesy.encode(knowledge_ids)
+            all_encoded_knowledge.append(encoded_mean.to(torch.float16).cpu().numpy())
+    
+    combined_data = np.concatenate(all_encoded_knowledge, axis=0)
+    tsne = TSNE(n_components=2, perplexity=5)
+    tsne_result = tsne.fit_transform(combined_data)
+
+    # Create a DataFrame for Plotly
+    df = pd.DataFrame(tsne_result, columns=['x', 'y'])
+    df['knowledge'] = [knowledge for knowledge in all_groundtruth_knowledge]  # 显示前50个字符
+
+    # Create an interactive scatter plot with hover text
+    fig = px.scatter(df, x='x', y='y', hover_data={'knowledge': True, 'x': False, 'y': False})
+
+    # Show the plot
+    fig.show()
+    mkdir(f"{args.exp_dir}/epoch{epoch}")
+    fig.write_html(f"{args.exp_dir}/epoch{epoch}/latent.html")
 
 def main(args):
 
@@ -1059,20 +1111,23 @@ def main(args):
                     train_log.flush()
 
     elif args.method == "nesy_iterative":
-        import string
-        synthetic_data = []
-        for _ in range(100):
-            #随机生成一个大小写字母构成的字符串
-            input_ = "".join(random.choices(string.ascii_letters, k=10))
-            #输出为逆转大小写
-            output_ = input_.swapcase()
-            synthetic_data.append({"input": input_, "target": output_, "sub_task_id": 0, "knowledge": "reverse the case of the input"})
-        random.shuffle(synthetic_data)
-        unseen_train_data_loader = DataLoader(synthetic_data[:90], batch_size=args.batch_size, shuffle=True)
-        unseen_test_data_loader = DataLoader(synthetic_data[90:], batch_size=args.batch_size, shuffle=True)
+        # import string
+        # synthetic_data = []
+        # for _ in range(100):
+        #     #随机生成一个大小写字母构成的字符串
+        #     input_ = "".join(random.choices(string.ascii_letters, k=10))
+        #     #输出为逆转大小写
+        #     output_ = input_.swapcase()
+        #     synthetic_data.append({"input": input_, "target": output_, "sub_task_id": 0, "knowledge": "reverse the case of the input"})
+        # random.shuffle(synthetic_data)
+        # unseen_train_data_loader = DataLoader(synthetic_data[:90], batch_size=args.batch_size, shuffle=True)
+        # unseen_test_data_loader = DataLoader(synthetic_data[90:], batch_size=args.batch_size, shuffle=True)
 
         log = open(f"{args.exp_dir}/iterative.log", "w")
         iterative_inference(args, unseen_train_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, log)
+
+    elif args.method == "nesy_visualize":
+        visualize_knowledge(args, start_epoch, data["seen_tasks"]["test"], data["unseen_tasks"]["test"], nesy, prompt_template, neural_evaluater, name="unseen task")
 
     elif args.method == "tagi_pretrain":
         
