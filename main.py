@@ -920,7 +920,7 @@ def visualize_knowledge(args, epoch, seen_test_data, unseen_test_data, nesy, pro
     fig = px.scatter(df, x='x', y='y', hover_data={'knowledge': True, 'x': False, 'y': False})
 
     # Show the plot
-    fig.show()
+    #fig.show()
     mkdir(f"{args.exp_dir}/epoch{epoch}")
     fig.write_html(f"{args.exp_dir}/epoch{epoch}/latent.html")
 
@@ -1036,10 +1036,10 @@ def main(args):
                 neural2symbolic_test_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
                 symbolic2neural_test_log = open(f"{args.exp_dir}/epoch{epoch}/symbolic2neural.log", file_mode)
 
-                test_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="seen task test")
-                test_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="unseen task test")
+                #test_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="seen task test")
+                #test_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="unseen task test")
 
-                test_neural2symbolic(args, epoch, data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="seen task")
+                #test_neural2symbolic(args, epoch, data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="seen task")
                 test_neural2symbolic(args, epoch, data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="unseen task")
 
             for i, batch in tqdm(enumerate(train_data_loader), desc=f"epoch {epoch}"):

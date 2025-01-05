@@ -758,6 +758,7 @@ predicted answer: {y_pred}
                 #     print(len(ex['input'].split(' ')))
                 if len(examples) == num_pertask:
                     break
+
             if len(examples) != num_pertask:
                 print(f"task_name: {train_tasks[sub_task_id - 1].strip()}, task_num: {len(examples)} is not enough")
                 #if len(examples) < 60:
@@ -874,8 +875,8 @@ predicted answer: {y_pred}
         all_data["unseen_tasks"] = json.load(open(f"./data/{task}_unseen_tasks.json", "r"))
         seen_task_num = len(all_data["seen_tasks"])
         task_num = len(all_data["seen_tasks"]) + len(all_data["unseen_tasks"])
-        #json.dump(all_data["seen_tasks"], open(f"./data/{task}_seen_tasks.json", "w"))
-        #json.dump(all_data["unseen_tasks"], open(f"./data/{task}_unseen_tasks.json", "w"))
+        #json.dump(all_data["seen_tasks"], open(f"./data/{task}_seen_tasks.json", "w"), indent=4)
+        #json.dump(all_data["unseen_tasks"], open(f"./data/{task}_unseen_tasks.json", "w"), indent=4)
         prompt_template = "{}"
         all_data["prompt_template"] = prompt_template
         all_data["neural_evaluater"] = neural_evaluater
