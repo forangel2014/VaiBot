@@ -68,3 +68,5 @@
         - 训练完NesyVAE后，更换task model，看泛化性
         - 迭代式增强，人在回路
         - 能够利用零碎的k,x,y数据，不再依赖于teacher model的训练
+        - p3数据集无用的k太多，筛除这部分数据
+        - 调task loss weight和recon loss weight，让nesy退化成VAE和VIB，看latent的分布

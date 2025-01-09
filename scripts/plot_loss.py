@@ -1,6 +1,16 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+
+# 设置全局字体为Times New Roman
+plt.rcParams['font.family'] = 'serif'
+
+# plt.rcParams['axes.facecolor'] = '#2c3e50'
+# plt.rcParams['figure.facecolor'] = '#34495e'
+
+plt.rcParams['grid.color'] = '#7f8c8d'
+plt.rcParams['grid.alpha'] = 0.3
+
 meta_exp_dir = "../exp_training_sample/"
 
 all_total_loss = []
@@ -57,10 +67,10 @@ plt.plot(task_loss_mean, label='Task Loss', color='green')
 plt.fill_between(range(len(recon_loss_mean)), recon_loss_mean - recon_loss_std, recon_loss_mean + recon_loss_std, alpha=0.2, color='blue')
 plt.fill_between(range(len(reg_loss_mean)), reg_loss_mean - reg_loss_std, reg_loss_mean + reg_loss_std, alpha=0.2, color='orange')
 plt.fill_between(range(len(task_loss_mean)), task_loss_mean - task_loss_std, task_loss_mean + task_loss_std, alpha=0.2, color='green')
-plt.title('Loss Curves')
+#plt.title('Loss Curves')
 plt.xlabel('Steps')
 plt.ylabel('Loss')
 plt.legend()
 plt.grid()
 plt.show()
-plt.savefig(f"loss_curve.pdf")
+plt.savefig("loss_curve.pdf", bbox_inches='tight')

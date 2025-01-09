@@ -242,121 +242,121 @@
         },
         {
             "sub_task_id": 29,
-            "input": "<input>night visions: timeless erotica\nReview: I thought it was great! Excellent pictures of beautiful women in an interesting story. Also, and interesting history of erotica.\nAnswer: .</input>",
+            "input": "<input>night visions: timeless erotica\nReview: I thought it was great! Excellent pictures of beautiful women in an interesting story. Also, and interesting history of erotica.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>great transaction wonderful book\nReview: I got this book very quickly and in nice shape. It is a very well-written book . One that many ready over and over since it was written in the'60's\nAnswer: .</input>",
+            "input": "<input>great transaction wonderful book\nReview: I got this book very quickly and in nice shape. It is a very well-written book . One that many ready over and over since it was written in the'60's</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Sad and Shocking\nReview: Alicia was a unique and really nice baby. I didn't really think she should of got putt in the hospital because her mom didn't want her. The book teaches us that anyone can help the hospital and help little kids. It also teaches us that even though you got put in a hospital because your mom didn't want you, don't mean you're not a nice person. One example was when people started to tease a girl because she helped the hospital take care of kids.Alicia was a great baby. She loved everybody. She knew what was wrong and what was right. Even though, she was only two.This is a great book for ANYONE to read!\nAnswer: .</input>",
+            "input": "<input>Sad and Shocking\nReview: Alicia was a unique and really nice baby. I didn't really think she should of got putt in the hospital because her mom didn't want her. The book teaches us that anyone can help the hospital and help little kids. It also teaches us that even though you got put in a hospital because your mom didn't want you, don't mean you're not a nice person. One example was when people started to tease a girl because she helped the hospital take care of kids.Alicia was a great baby. She loved everybody. She knew what was wrong and what was right. Even though, she was only two.This is a great book for ANYONE to read!</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Noooo\nReview: I can't believe that George Lucas added the NOOOO scream at the end of Jedi. Blinking Ewok's can be forgiven. Emo Vador? Not at all.\nAnswer: .</input>",
+            "input": "<input>Noooo\nReview: I can't believe that George Lucas added the NOOOO scream at the end of Jedi. Blinking Ewok's can be forgiven. Emo Vador? Not at all.</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Nothing \"New\": just recycled and out of date advice\nReview: Dobson doesn't really have anything \"New\" in this book except the title, an attempt to sell more books, as if this was an update from his previous ones, and it is not. He ignores decades of research findings about the best ways to raise healthy and successful children, and instead reverts to his standard method -- \"pick up a belt or a board and hit them, and don't allow them to cry longer than a few minutes, or hit them more until they stop crying about it.\" Parents who are seduced by his folksy style into following his advice are likely to injure their children and invite child protective agencies into their lives. Dobson is the dinosauer of child rearing -- he needs to become extinct. This book is harmful, creating the opposite effect of what parents really want for their children.\nAnswer: .</input>",
+            "input": "<input>Nothing \"New\": just recycled and out of date advice\nReview: Dobson doesn't really have anything \"New\" in this book except the title, an attempt to sell more books, as if this was an update from his previous ones, and it is not. He ignores decades of research findings about the best ways to raise healthy and successful children, and instead reverts to his standard method -- \"pick up a belt or a board and hit them, and don't allow them to cry longer than a few minutes, or hit them more until they stop crying about it.\" Parents who are seduced by his folksy style into following his advice are likely to injure their children and invite child protective agencies into their lives. Dobson is the dinosauer of child rearing -- he needs to become extinct. This book is harmful, creating the opposite effect of what parents really want for their children.</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>These guys & this show are crazy funny.\nReview: I remember watching the series years ago. Kinda strange sarcastic humor. Since they don't seem to be regularly on the air these days I jumped at buying DVD's for my own collection. Glad I did. Real oddball humor and characters. And ducttape rules., as they might say.\nAnswer: .</input>",
+            "input": "<input>These guys & this show are crazy funny.\nReview: I remember watching the series years ago. Kinda strange sarcastic humor. Since they don't seem to be regularly on the air these days I jumped at buying DVD's for my own collection. Glad I did. Real oddball humor and characters. And ducttape rules., as they might say.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Perfect Staple\nReview: Lundberg sets the bar when it comes to rice cakes. This is truly the perfect staple and when you need something healthy while traveling, rice cakes are the ideal solution. I've even been known to carry them in my purse into a restaurant so I have an option to the potato or rice that the chef smothers in butter or some other sauce full of fat. Lightness in the belly that shows up on the bathroom scale.\nAnswer: .</input>",
+            "input": "<input>Perfect Staple\nReview: Lundberg sets the bar when it comes to rice cakes. This is truly the perfect staple and when you need something healthy while traveling, rice cakes are the ideal solution. I've even been known to carry them in my purse into a restaurant so I have an option to the potato or rice that the chef smothers in butter or some other sauce full of fat. Lightness in the belly that shows up on the bathroom scale.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>It's a great iron!\nReview: I purchased this iron a couple of months ago and really enjoy using it. In fact, this is a \"step up\" from my other Black & Decker iron. I like that the iron is heavier than most and irons well. I iron a lot of shirts for my husband so ironing is a part of my life! I recommend it highly!\nAnswer: .</input>",
+            "input": "<input>It's a great iron!\nReview: I purchased this iron a couple of months ago and really enjoy using it. In fact, this is a \"step up\" from my other Black & Decker iron. I like that the iron is heavier than most and irons well. I iron a lot of shirts for my husband so ironing is a part of my life! I recommend it highly!</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>bad BAD B-A-D\nReview: I've ordered the collection with one thought in mind: ohh boy! a good irish collection.i was astonished to hear SYNTHESIZED(!) music instead of the real instruments - no violins here, no bagpipes, no flutes!only synthesized music! this collection had much potential but it was killed!not to mention the annoying rain sounds. ok - their nice for starts but they dont stop all thru the album and sometimes the music gets engulfed in them totaly.BAD!\nAnswer: .</input>",
+            "input": "<input>bad BAD B-A-D\nReview: I've ordered the collection with one thought in mind: ohh boy! a good irish collection.i was astonished to hear SYNTHESIZED(!) music instead of the real instruments - no violins here, no bagpipes, no flutes!only synthesized music! this collection had much potential but it was killed!not to mention the annoying rain sounds. ok - their nice for starts but they dont stop all thru the album and sometimes the music gets engulfed in them totaly.BAD!</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Wear w everything shoe\nReview: This shoe is the best thing ever. It dresses up jeans or you can wear with nice pants. Pretty comfortable to walk around in and give uoi a little extra height. I get compliments frequently and I love that they seem to match any outfit.\nAnswer: .</input>",
+            "input": "<input>Wear w everything shoe\nReview: This shoe is the best thing ever. It dresses up jeans or you can wear with nice pants. Pretty comfortable to walk around in and give uoi a little extra height. I get compliments frequently and I love that they seem to match any outfit.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>One Star\nReview: Tom felt the series needed some comic relief, so the \"funny out of his element\" computer hacker/expert continually makes jokes that bring the action to a screeching halt. This comic relief character, when the tension is at it's height, has to say something \"funny\", not witty, that destroys the momentum of the moment. The Mission Impossible series has always been a roller coaster ride with a thrill a minute. This version is a Disney Tea Cup ride, with a thrill every 30 to 45 minutes.Terrible script, terrible acting, and terrible directing.\nAnswer: .</input>",
+            "input": "<input>One Star\nReview: Tom felt the series needed some comic relief, so the \"funny out of his element\" computer hacker/expert continually makes jokes that bring the action to a screeching halt. This comic relief character, when the tension is at it's height, has to say something \"funny\", not witty, that destroys the momentum of the moment. The Mission Impossible series has always been a roller coaster ride with a thrill a minute. This version is a Disney Tea Cup ride, with a thrill every 30 to 45 minutes.Terrible script, terrible acting, and terrible directing.</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Terrible quality control\nReview: Replaced a similar Nutone fan (that had run faithfully for almost 30 years before quitting) with the Broan model 157. It ran well, and heated well, but was incredibly noisy. I called customer service who were courteous and efficient, and sent out a replacement with no hassle. This ran quietly and heated well, but shut off permanently after twenty minutes. Again, customer service sent out a replacement with no hassle, but this one only worked for ten minutes! I am sure that you will be pleased with the heater if it works as it is supposed to, but be prepared for quite a bit of uninstalling and installing if you select this product.\nAnswer: .</input>",
+            "input": "<input>Terrible quality control\nReview: Replaced a similar Nutone fan (that had run faithfully for almost 30 years before quitting) with the Broan model 157. It ran well, and heated well, but was incredibly noisy. I called customer service who were courteous and efficient, and sent out a replacement with no hassle. This ran quietly and heated well, but shut off permanently after twenty minutes. Again, customer service sent out a replacement with no hassle, but this one only worked for ten minutes! I am sure that you will be pleased with the heater if it works as it is supposed to, but be prepared for quite a bit of uninstalling and installing if you select this product.</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>insightful, well written\nReview: I knew little about poetry before reading this book. When I was done, I knew much more and was inspired to read more. Halpern is insightful and thorough here. His sections of analysis are well structured AND exciting. I finished the book wishing he had written more.\nAnswer: .</input>",
+            "input": "<input>insightful, well written\nReview: I knew little about poetry before reading this book. When I was done, I knew much more and was inspired to read more. Halpern is insightful and thorough here. His sections of analysis are well structured AND exciting. I finished the book wishing he had written more.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>If the lore of the transmigration of souls is a true one,...\nReview: The three letter I.H.S., written in chalk : a circumsntance which did not fail to impress me,....\nAnswer: .</input>",
+            "input": "<input>If the lore of the transmigration of souls is a true one,...\nReview: The three letter I.H.S., written in chalk : a circumsntance which did not fail to impress me,....</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Wodnerfull book from a great teacher!\nReview: I had the delight of taking John Main's classes at the Yoga Tree when I lived in the Haight in 2002. I just re-ordered thsi book to read it again, my first on being purchased from the Yoga Tree. His honesty and simple, straight on writing and thoughs are inspiring and make for a great, motivating book.\nAnswer: .</input>",
+            "input": "<input>Wodnerfull book from a great teacher!\nReview: I had the delight of taking John Main's classes at the Yoga Tree when I lived in the Haight in 2002. I just re-ordered thsi book to read it again, my first on being purchased from the Yoga Tree. His honesty and simple, straight on writing and thoughs are inspiring and make for a great, motivating book.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Save the last bomb for the sequel.\nReview: Being a self described fan of TREMORS, I watched with anticipation the sequel TREMORS II. After suffering through the entire length of this \"film\", I can sum my feelings in only two words-- Stuu! Pid! As far I can gather, here is the plot to Tremors II. Take five out of work, has-been actors, that will do almost any movie for a paycheck, give them an innane script about some giant baby worms (with feet?) who try to nurse their way through a town full of hicks. The End. This flick was so bad and such a waste of time that I don't even want to waste another second on this review. My advice? Go out and rent TREMORS. Sit back and enjoy and try and forget TREMORS II.\nAnswer: .</input>",
+            "input": "<input>Save the last bomb for the sequel.\nReview: Being a self described fan of TREMORS, I watched with anticipation the sequel TREMORS II. After suffering through the entire length of this \"film\", I can sum my feelings in only two words-- Stuu! Pid! As far I can gather, here is the plot to Tremors II. Take five out of work, has-been actors, that will do almost any movie for a paycheck, give them an innane script about some giant baby worms (with feet?) who try to nurse their way through a town full of hicks. The End. This flick was so bad and such a waste of time that I don't even want to waste another second on this review. My advice? Go out and rent TREMORS. Sit back and enjoy and try and forget TREMORS II.</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Boring!\nReview: What ARE all these reviewers talking about? This book is DULL. It is very cliche and full of all the standard fantasy tropes, with bad writing and childish names, as well as particularly cardboard characters to boot. As a transplanted Aussie, I cannot take any pride in the efforts of this particular countryman. Try Juliet Marillier if you are looking for someone from Oz who can actually WRITE.\nAnswer: .</input>",
+            "input": "<input>Boring!\nReview: What ARE all these reviewers talking about? This book is DULL. It is very cliche and full of all the standard fantasy tropes, with bad writing and childish names, as well as particularly cardboard characters to boot. As a transplanted Aussie, I cannot take any pride in the efforts of this particular countryman. Try Juliet Marillier if you are looking for someone from Oz who can actually WRITE.</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Childish and Annoying\nReview: The Hobbit I found was boring and so happy it was annoying. The characters are so happy it's annoying. I like characters with a lot of back ground and I like many characters I can relate to. A bunch of identical dwarves don't do the job. They also don't fit the spirit of dwarves, but then again after time they evolved into the grumpy alchoholics fantasy tends to portray them as. All the characters were corny and annoying. Anyway, don't get me wrong about it. I understood it. I loved the Dragonlance chronicles and Wheel of Time which made this book look so childish. I've heard Lord of the Rings is much better so I might read that. It doesn't seem as happy perfect utopia where elves dance and sing songs all day as The Hobbit was.\nAnswer: .</input>",
+            "input": "<input>Childish and Annoying\nReview: The Hobbit I found was boring and so happy it was annoying. The characters are so happy it's annoying. I like characters with a lot of back ground and I like many characters I can relate to. A bunch of identical dwarves don't do the job. They also don't fit the spirit of dwarves, but then again after time they evolved into the grumpy alchoholics fantasy tends to portray them as. All the characters were corny and annoying. Anyway, don't get me wrong about it. I understood it. I loved the Dragonlance chronicles and Wheel of Time which made this book look so childish. I've heard Lord of the Rings is much better so I might read that. It doesn't seem as happy perfect utopia where elves dance and sing songs all day as The Hobbit was.</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Great Then. Great Now.\nReview: Who Can it Be Now, Overkill, Down Under, It's a Mistake, Be Good Johnny....great songs back in the 80s and great songs now. The downloads are good quality and not live.\nAnswer: .</input>",
+            "input": "<input>Great Then. Great Now.\nReview: Who Can it Be Now, Overkill, Down Under, It's a Mistake, Be Good Johnny....great songs back in the 80s and great songs now. The downloads are good quality and not live.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Does the job\nReview: Aside from knowing what a robin and sparrow are I have no clue about birds. I bought this book hoping to identify some of the birds at my feeder and a huge bird that is not a hawk that is sitting in my pine tree. It has been serving its purpose. The pictures are acurate and the description tells me that the birds do live in my area. If you are an expert or are looking for an extensive book on birds this probably will not be enough for you but for the beginner this does the job.\nAnswer: .</input>",
+            "input": "<input>Does the job\nReview: Aside from knowing what a robin and sparrow are I have no clue about birds. I bought this book hoping to identify some of the birds at my feeder and a huge bird that is not a hawk that is sitting in my pine tree. It has been serving its purpose. The pictures are acurate and the description tells me that the birds do live in my area. If you are an expert or are looking for an extensive book on birds this probably will not be enough for you but for the beginner this does the job.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
@@ -602,121 +602,121 @@
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Joe is a philosopher who spends his day listening to music. He finds that it evokes a mental state that opens his thoughts and brings him closer to obtaining what?ardor\n- relaxation\n- ability to play guitar\n- enlightenment\n- feeling better Answer: enlightenment.</input>",
+            "input": "<input>Question: Joe is a philosopher who spends his day listening to music. He finds that it evokes a mental state that opens his thoughts and brings him closer to obtaining what?ardor\n- relaxation\n- ability to play guitar\n- enlightenment\n- feeling better\nAnswer: enlightenment.</input>",
             "target": "<output>intellectual and philosophical movement.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: The dog really liked the treats, which was good since they were for the health of his what?teeth\n- two eyes\n- four legs\n- one mouth\n- two ears Answer: teeth.</input>",
+            "input": "<input>Question: The dog really liked the treats, which was good since they were for the health of his what?teeth\n- two eyes\n- four legs\n- one mouth\n- two ears\nAnswer: teeth.</input>",
             "target": "<output>out of the answers, it is most likely treats would benefit the health of the dog's teeth.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: John put the book in his pack and then went off to work.  Where might he be working?public library\n- backpack\n- briefcase\n- suitcase\n- synagogue Answer: synagogue.</input>",
+            "input": "<input>Question: John put the book in his pack and then went off to work.  Where might he be working?public library\n- backpack\n- briefcase\n- suitcase\n- synagogue\nAnswer: synagogue.</input>",
             "target": "<output>synagogue put the book in his pack.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: What might happen after winning a baseball game?joy\n- celebration\n- pride\n- in good spirits\n- happiness Answer: celebration.</input>",
+            "input": "<input>Question: What might happen after winning a baseball game?joy\n- celebration\n- pride\n- in good spirits\n- happiness\nAnswer: celebration.</input>",
             "target": "<output>to celebrate their happiness.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: While mowing the lawn he had to be careful not to hit the landscaping, he didn't want to launch a rock at a passing car while working in the what?front yard\n- forest\n- back yard\n- suburbia\n- golf course Answer: front yard.</input>",
+            "input": "<input>Question: While mowing the lawn he had to be careful not to hit the landscaping, he didn't want to launch a rock at a passing car while working in the what?front yard\n- forest\n- back yard\n- suburbia\n- golf course\nAnswer: front yard.</input>",
             "target": "<output>residential block of land, a front yard.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Artie Shaw became famous playing a clarinet in what outfit?orchestra\n- jazz band\n- rock band\n- music store\n- music studio Answer: jazz band.</input>",
+            "input": "<input>Question: Artie Shaw became famous playing a clarinet in what outfit?orchestra\n- jazz band\n- rock band\n- music store\n- music studio\nAnswer: jazz band.</input>",
             "target": "<output>artie shaw became famous playing a clarinet in jazz band.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: What might happen to a person after falling?get up\n- receive letters\n- cross street\n- give gifts\n- feel embarrassed Answer: feel embarrassed.</input>",
+            "input": "<input>Question: What might happen to a person after falling?get up\n- receive letters\n- cross street\n- give gifts\n- feel embarrassed\nAnswer: feel embarrassed.</input>",
             "target": "<output>a fall causes people shame.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: What's the place every grape wants to go in the end?painting\n- field\n- fruit stand\n- winery\n- garage Answer: winery.</input>",
+            "input": "<input>Question: What's the place every grape wants to go in the end?painting\n- field\n- fruit stand\n- winery\n- garage\nAnswer: winery.</input>",
             "target": "<output>winerywhat's the place every grape wants to go in the end.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Where would you find a dictionary near young people getting lessons?shelf\n- friend's house\n- table\n- library\n- classroom Answer: classroom.</input>",
+            "input": "<input>Question: Where would you find a dictionary near young people getting lessons?shelf\n- friend's house\n- table\n- library\n- classroom\nAnswer: classroom.</input>",
             "target": "<output>classroom library table.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: A friend is greeting me, what would they say?say hello\n- greet\n- associate\n- socialize\n- smile Answer: say hello.</input>",
+            "input": "<input>Question: A friend is greeting me, what would they say?say hello\n- greet\n- associate\n- socialize\n- smile\nAnswer: say hello.</input>",
             "target": "<output>friends tell each other hello when the greet one another.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: The ranch house overlooked unobscured mountains and valleys, where was it located?subdivision\n- montana\n- countryside\n- metropolis\n- desert Answer: countryside.</input>",
+            "input": "<input>Question: The ranch house overlooked unobscured mountains and valleys, where was it located?subdivision\n- montana\n- countryside\n- metropolis\n- desert\nAnswer: countryside.</input>",
             "target": "<output>the countryside usually doesn't have many buildings that block views.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: The baby was thirsty, so it's mother allowed it to do what?arrive on time\n- bring joy\n- nurse\n- boy or girl\n- earn to speak Answer: nurse.</input>",
+            "input": "<input>Question: The baby was thirsty, so it's mother allowed it to do what?arrive on time\n- bring joy\n- nurse\n- boy or girl\n- earn to speak\nAnswer: nurse.</input>",
             "target": "<output>what is nursing.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Where can you get chicken without leaving your car?eaten\n- bbq\n- fast food restaurant\n- plate\n- pizza Answer: fast food restaurant.</input>",
+            "input": "<input>Question: Where can you get chicken without leaving your car?eaten\n- bbq\n- fast food restaurant\n- plate\n- pizza\nAnswer: fast food restaurant.</input>",
             "target": "<output>the name of the fast food restaurant and chicken prepared is to be fast.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: They were having friends stay at their home, they apologized for only having a sofa bed in the what?basement\n- hotel\n- garage\n- guest room\n- horseradish Answer: guest room.</input>",
+            "input": "<input>Question: They were having friends stay at their home, they apologized for only having a sofa bed in the what?basement\n- hotel\n- garage\n- guest room\n- horseradish\nAnswer: guest room.</input>",
             "target": "<output>friends sleep in the guest bedroom.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Where would you find people gathered near liquid in a workplace?water cooler\n- opera\n- hospital\n- hockey game\n- beach Answer: water cooler.</input>",
+            "input": "<input>Question: Where would you find people gathered near liquid in a workplace?water cooler\n- opera\n- hospital\n- hockey game\n- beach\nAnswer: water cooler.</input>",
             "target": "<output>images for c.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: What would you experience if a friend robs you after cashing in chips at a casino?betrayal\n- resentment\n- depressed\n- leave\n- profit Answer: betrayal.</input>",
+            "input": "<input>Question: What would you experience if a friend robs you after cashing in chips at a casino?betrayal\n- resentment\n- depressed\n- leave\n- profit\nAnswer: betrayal.</input>",
             "target": "<output>loyalty and betrayal (e-40 album) - wikipedia.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Why is a husband looking at apartments after communicating with his wife when they are tired?confusion\n- misunderstandings\n- transfer of information\n- exchanging ideas\n- static Answer: misunderstandings.</input>",
+            "input": "<input>Question: Why is a husband looking at apartments after communicating with his wife when they are tired?confusion\n- misunderstandings\n- transfer of information\n- exchanging ideas\n- static\nAnswer: misunderstandings.</input>",
             "target": "<output>misunderstanding definition and meaning | collins english dictionary.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Curiosity lead James to put extra effort into doing what at the fair?see exhibits\n- design software\n- read book\n- use television\n- eating dinner Answer: see exhibits.</input>",
+            "input": "<input>Question: Curiosity lead James to put extra effort into doing what at the fair?see exhibits\n- design software\n- read book\n- use television\n- eating dinner\nAnswer: see exhibits.</input>",
             "target": "<output>exhibits happen at the fair.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: What is someone likely to do when trying to memorize something?store data\n- repeat\n- concentrate\n- store data\n- awake Answer: concentrate.</input>",
+            "input": "<input>Question: What is someone likely to do when trying to memorize something?store data\n- repeat\n- concentrate\n- store data\n- awake\nAnswer: concentrate.</input>",
             "target": "<output>rivers flow trough valleys.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Why would people be getting in line?follow others\n- wait turn\n- late\n- have to wait for\n- longer lines Answer: have to wait for.</input>",
+            "input": "<input>Question: Why would people be getting in line?follow others\n- wait turn\n- late\n- have to wait for\n- longer lines\nAnswer: have to wait for.</input>",
             "target": "<output>define something will have.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
@@ -2402,121 +2402,121 @@
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Tracy gave their mom a card for her birthday when she was feeling very lonely. Answer: better.</input>",
+            "input": "<input> Context: Tracy gave their mom a card for her birthday when she was feeling very lonely.\nAnswer: better.</input>",
             "target": "<output>What will happen to her mom?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Jesse came to the sleepover with a pair of soft slippers packed in a bag. Answer: show off the soft slippers.</input>",
+            "input": "<input> Context: Jesse came to the sleepover with a pair of soft slippers packed in a bag.\nAnswer: show off the soft slippers.</input>",
             "target": "<output>What will Jesse want to do next?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Robin hated every dress and felt like giving up until they found the perfect one. Answer: happy.</input>",
+            "input": "<input> Context: Robin hated every dress and felt like giving up until they found the perfect one.\nAnswer: happy.</input>",
             "target": "<output>How would Robin feel afterwards?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Remy taught people in class a lesson on good financial management and planning. Answer: very studious.</input>",
+            "input": "<input> Context: Remy taught people in class a lesson on good financial management and planning.\nAnswer: very studious.</input>",
             "target": "<output>How would you describe Remy?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Austin was on a fast to lose weight and ate nothing for a week. Answer: hungry.</input>",
+            "input": "<input> Context: Austin was on a fast to lose weight and ate nothing for a week.\nAnswer: hungry.</input>",
             "target": "<output>How would you describe Austin?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Casey trapped a spider in her bathroom. She flushed the spider down the toilet. Answer: Cleaning the bathroom.</input>",
+            "input": "<input> Context: Casey trapped a spider in her bathroom. She flushed the spider down the toilet.\nAnswer: Cleaning the bathroom.</input>",
             "target": "<output>How would you describe Casey?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Robin put the food in the trash and carried it out to the curb. Answer: clean out the refrigerator of old food.</input>",
+            "input": "<input> Context: Robin put the food in the trash and carried it out to the curb.\nAnswer: clean out the refrigerator of old food.</input>",
             "target": "<output>What does Robin need to do before this?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Lee wrote stories about his adventures as a little boy in the big city. Answer: publish the stories.</input>",
+            "input": "<input> Context: Lee wrote stories about his adventures as a little boy in the big city.\nAnswer: publish the stories.</input>",
             "target": "<output>Why did Lee do this?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Aubrey provided Ash's overview to their bosses since he was out sick. Answer: helpful and friendly.</input>",
+            "input": "<input> Context: Aubrey provided Ash's overview to their bosses since he was out sick.\nAnswer: helpful and friendly.</input>",
             "target": "<output>How would Aubrey feel after helping?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Cameron kept their her open. She felt that was the best way to handle the situation. Answer: happy about the decision.</input>",
+            "input": "<input> Context: Cameron kept their her open. She felt that was the best way to handle the situation.\nAnswer: happy about the decision.</input>",
             "target": "<output>How would Cameron feel as a result?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Lee was walking on a tight rope at the circus, the crowd watched in awe then Lee threw himself off balance then spun round and corrected himself. Answer: show their skills.</input>",
+            "input": "<input> Context: Lee was walking on a tight rope at the circus, the crowd watched in awe then Lee threw himself off balance then spun round and corrected himself.\nAnswer: show their skills.</input>",
             "target": "<output>Why did Lee do this?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Addison wanted to make sure she had her car keys. Answer: Very cautious.</input>",
+            "input": "<input> Context: Addison wanted to make sure she had her car keys.\nAnswer: Very cautious.</input>",
             "target": "<output>How would you describe Addison?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Remy immediately opened the presents her friends brought her on her birthday. Answer: her friends brought them.</input>",
+            "input": "<input> Context: Remy immediately opened the presents her friends brought her on her birthday.\nAnswer: her friends brought them.</input>",
             "target": "<output>Why did Remy open presents?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Ash was behaving inappropriately at the bar and groped another patron. Answer: be thrown out of the bar.</input>",
+            "input": "<input> Context: Ash was behaving inappropriately at the bar and groped another patron.\nAnswer: be thrown out of the bar.</input>",
             "target": "<output>What will happen to Ash?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Taylor taught children science.  The children seemed to learn fast. Answer: a good teacher.</input>",
+            "input": "<input> Context: Taylor taught children science.  The children seemed to learn fast.\nAnswer: a good teacher.</input>",
             "target": "<output>How would Taylor feel afterwards?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: sydney was asked on a date by brad, so taylor decided to also ask sydney. Answer: go on a date with sydney.</input>",
+            "input": "<input> Context: sydney was asked on a date by brad, so taylor decided to also ask sydney.\nAnswer: go on a date with sydney.</input>",
             "target": "<output>Why did Taylor do this?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Taylor grabbed Skylar's hands and pressed them together while they talked. Answer: ask to take Skylar's hands.</input>",
+            "input": "<input> Context: Taylor grabbed Skylar's hands and pressed them together while they talked.\nAnswer: ask to take Skylar's hands.</input>",
             "target": "<output>What does Taylor need to do before this?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Addison got Quinn in a trademark trap and stole his invention from him. Answer: sell the product.</input>",
+            "input": "<input> Context: Addison got Quinn in a trademark trap and stole his invention from him.\nAnswer: sell the product.</input>",
             "target": "<output>What will Addison want to do next?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Kendall took out his interactive treasure map and clicked the question mark for another hint to the location of the pirates treasure. Answer: locate the pirates treasure.</input>",
+            "input": "<input> Context: Kendall took out his interactive treasure map and clicked the question mark for another hint to the location of the pirates treasure.\nAnswer: locate the pirates treasure.</input>",
             "target": "<output>Why did Kendall do this?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Lee brought up their children to value a good work ethic. Answer: use what they learned.</input>",
+            "input": "<input> Context: Lee brought up their children to value a good work ethic.\nAnswer: use what they learned.</input>",
             "target": "<output>What will Others want to do next?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
@@ -3424,31 +3424,31 @@
         },
         {
             "sub_task_id": 29,
-            "input": "<input>wonderful novel\nReview: A beautifully written and fully realized portrait of the Harris family in California in the early sixties, a conservative milieu, at the cusp of real social change. I thought the best character was the father: a businessman scheming of wealth, and saddled with debt. He leaps off the page, all his frustration and fury placed in a broad context, amid drought-ridden California hills spouting developments and highways. And then there's Bruce, a boy who puts CLEAN SHEETS on a bed, dreaming of the Army. I loved this book.\nAnswer: .</input>",
+            "input": "<input>wonderful novel\nReview: A beautifully written and fully realized portrait of the Harris family in California in the early sixties, a conservative milieu, at the cusp of real social change. I thought the best character was the father: a businessman scheming of wealth, and saddled with debt. He leaps off the page, all his frustration and fury placed in a broad context, amid drought-ridden California hills spouting developments and highways. And then there's Bruce, a boy who puts CLEAN SHEETS on a bed, dreaming of the Army. I loved this book.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Doesn't work\nReview: I don't know if I got a bad vaccuum or what, since other people seem to like it, but this will not pick up anything on my hardwoods - I've had it less than 6 months and it only worked right the first couple times I used it. I checked connections, the bag (virtually empty) etc. to no avail. I feel like I got ripped off because I didn't want to jump through a bunch of hoops and spend money to return it when it only cost $60. I just replaced it with a Kenmore canister vaccuum which works great - picks up cat litter around the cat box, etc.\nAnswer: .</input>",
+            "input": "<input>Doesn't work\nReview: I don't know if I got a bad vaccuum or what, since other people seem to like it, but this will not pick up anything on my hardwoods - I've had it less than 6 months and it only worked right the first couple times I used it. I checked connections, the bag (virtually empty) etc. to no avail. I feel like I got ripped off because I didn't want to jump through a bunch of hoops and spend money to return it when it only cost $60. I just replaced it with a Kenmore canister vaccuum which works great - picks up cat litter around the cat box, etc.</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Rocky Balboa is Great.\nReview: Rocky Balboa is a great film one of the best in the series. I highly recommend it for anyone.\nAnswer: .</input>",
+            "input": "<input>Rocky Balboa is Great.\nReview: Rocky Balboa is a great film one of the best in the series. I highly recommend it for anyone.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>3 years running and still going strong\nReview: I forgot I purchased these from Amazon so when a review reminder was sent I am all over it! I purchased a couple of these batteries 3 years ago because the original batteries in my Panasonic phones died after about a year. I never ran out of battery life when using these batteries even on 90 minutes calls. I definitely recommend this battery.\nAnswer: .</input>",
+            "input": "<input>3 years running and still going strong\nReview: I forgot I purchased these from Amazon so when a review reminder was sent I am all over it! I purchased a couple of these batteries 3 years ago because the original batteries in my Panasonic phones died after about a year. I never ran out of battery life when using these batteries even on 90 minutes calls. I definitely recommend this battery.</input>",
             "target": "<output>Positive.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
         {
             "sub_task_id": 29,
-            "input": "<input>Just okay; wastes Amber Tamblyn\nReview: The fine actor Amber Tamblyn is wasted in a lousy script with a very forgettable story. I've already forgotten most of what little story there was. This could have been executed much better than it was. Too bad that not much was done with it, or with her skills.\nAnswer: .</input>",
+            "input": "<input>Just okay; wastes Amber Tamblyn\nReview: The fine actor Amber Tamblyn is wasted in a lousy script with a very forgettable story. I've already forgotten most of what little story there was. This could have been executed much better than it was. Too bad that not much was done with it, or with her skills.</input>",
             "target": "<output>Negative.</output>",
             "knowledge": "<instruction>Is there a negative or positive tone to this product review?</instruction>"
         },
@@ -3514,31 +3514,31 @@
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Billy cared about his opponent, in spite of their disagreements.  Because of that, when he lost the primary, Billy began to do what for him?proponent\n- supporter\n- falling down\n- advocate\n- dig up skeletons Answer: advocate.</input>",
+            "input": "<input>Question: Billy cared about his opponent, in spite of their disagreements.  Because of that, when he lost the primary, Billy began to do what for him?proponent\n- supporter\n- falling down\n- advocate\n- dig up skeletons\nAnswer: advocate.</input>",
             "target": "<output>advocate spite their disagreements.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Where do you take a bus after a day at work?combat\n- avoid parking hassle\n- commute\n- go home\n- get somewhere Answer: go home.</input>",
+            "input": "<input>Question: Where do you take a bus after a day at work?combat\n- avoid parking hassle\n- commute\n- go home\n- get somewhere\nAnswer: go home.</input>",
             "target": "<output>stuffed with extra baggage.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: If I am suffering from boredom, and I want to do something with a dictionary, what would help?do crossword puzzle\n- see art\n- give up\n- grocery shop\n- play chess Answer: do crossword puzzle.</input>",
+            "input": "<input>Question: If I am suffering from boredom, and I want to do something with a dictionary, what would help?do crossword puzzle\n- see art\n- give up\n- grocery shop\n- play chess\nAnswer: do crossword puzzle.</input>",
             "target": "<output>dictionaries contain words and their definitions; a crossword is the only choice that relies on words.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: Where do you put a new dining table?cafeteria\n- arranging papers\n- in the park\n- formal dining room\n- house Answer: house.</input>",
+            "input": "<input>Question: Where do you put a new dining table?cafeteria\n- arranging papers\n- in the park\n- formal dining room\n- house\nAnswer: house.</input>",
             "target": "<output>it goes inside.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
         {
             "sub_task_id": 57,
-            "input": "<input>Question: A person who is well off has the simplest of luxuries that they can just do what?perfect world\n- be a snob\n- headache\n- eat well\n- live comfortably Answer: live comfortably.</input>",
+            "input": "<input>Question: A person who is well off has the simplest of luxuries that they can just do what?perfect world\n- be a snob\n- headache\n- eat well\n- live comfortably\nAnswer: live comfortably.</input>",
             "target": "<output>if someone is well off they can afford to live in comfort.</output>",
             "knowledge": "<instruction>Given the question, options, and answer. Explain why a human would choose that answer to answer the question.</instruction>"
         },
@@ -3964,31 +3964,31 @@
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Robin and Kai had been friends for a few weeks. They went to the movies and Kai appreciated that Robin always drove to do fun things. Answer: go to lunch.</input>",
+            "input": "<input> Context: Robin and Kai had been friends for a few weeks. They went to the movies and Kai appreciated that Robin always drove to do fun things.\nAnswer: go to lunch.</input>",
             "target": "<output>What will Kai want to do next?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Jesse got it checked out after finding out that it may be trouble. Answer: anxious.</input>",
+            "input": "<input> Context: Jesse got it checked out after finding out that it may be trouble.\nAnswer: anxious.</input>",
             "target": "<output>How would Jesse feel afterwards?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Skylar was always the first to class because she loved school so she arrived extra early and took a seat in the front row. Answer: be in the front row.</input>",
+            "input": "<input> Context: Skylar was always the first to class because she loved school so she arrived extra early and took a seat in the front row.\nAnswer: be in the front row.</input>",
             "target": "<output>How would you describe Skylar?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Kendall met Robins family and they completely rejected him. Answer: felt excluded and left out.</input>",
+            "input": "<input> Context: Kendall met Robins family and they completely rejected him.\nAnswer: felt excluded and left out.</input>",
             "target": "<output>How would Kendall feel afterwards?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },
         {
             "sub_task_id": 237,
-            "input": "<input> Context: Taylor asked another person and they also told Taylor no. Answer: ask someone else.</input>",
+            "input": "<input> Context: Taylor asked another person and they also told Taylor no.\nAnswer: ask someone else.</input>",
             "target": "<output>What will Taylor want to do next?</output>",
             "knowledge": "<instruction>\n\nGiven that the answer to a question about the context, what is the question?</instruction>"
         },

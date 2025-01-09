@@ -1,6 +1,15 @@
 import os
 import matplotlib.pyplot as plt
 
+# 设置全局字体为Times New Roman
+plt.rcParams['font.family'] = 'serif'
+
+# plt.rcParams['axes.facecolor'] = '#2c3e50'
+# plt.rcParams['figure.facecolor'] = '#34495e'
+
+plt.rcParams['grid.color'] = '#7f8c8d'
+plt.rcParams['grid.alpha'] = 0.3
+
 def load_data(exp_dir, selected_epoch):
 
     pretrain_ratios = []
@@ -82,15 +91,16 @@ pretrain_ratios_sni, induction_accuracy_sni, deduction_accuracy_sni = load_data(
 exp_dir = "../exp_p3_generalize"
 pretrain_ratios_p3, induction_accuracy_p3, deduction_accuracy_p3 = load_data(exp_dir, selected_epoch)
 
-plt.plot(pretrain_ratios_sni, induction_accuracy_sni, label="induction (SNI)", color='#2ecc71', marker='o', linestyle='-')
-plt.plot(pretrain_ratios_sni, deduction_accuracy_sni, label="deduction (SNI)", color='#e74c3c', marker='o', linestyle='-')
+plt.plot(pretrain_ratios_sni, induction_accuracy_sni, label="induction (SNI)", color='#1abc9c', marker='o', linestyle='-')
+plt.plot(pretrain_ratios_sni, deduction_accuracy_sni, label="deduction (SNI)", color='#3498db', marker='o', linestyle='-')
 
-plt.plot(pretrain_ratios_p3, induction_accuracy_p3, label="induction (P3)", color='#2ecc71', marker='o', linestyle='--')
-plt.plot(pretrain_ratios_p3, deduction_accuracy_p3, label="deduction (P3)", color='#e74c3c', marker='o', linestyle='--')
+plt.plot(pretrain_ratios_p3, induction_accuracy_p3, label="induction (P3)", color='#1abc9c', marker='o', linestyle='--')
+plt.plot(pretrain_ratios_p3, deduction_accuracy_p3, label="deduction (P3)", color='#3498db', marker='o', linestyle='--')
 
 #横轴标签：pretrain ratio
 plt.xlabel("pretrain ratio")
 plt.ylabel("accuracy")
+plt.grid(True)
 
 plt.legend(loc='lower right')
-plt.savefig(f"generalization.pdf")
+plt.savefig(f"generalization.pdf", bbox_inches='tight')

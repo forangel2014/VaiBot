@@ -873,6 +873,16 @@ predicted answer: {y_pred}
 
         all_data["seen_tasks"] = json.load(open(f"./data/{task}_seen_tasks.json", "r"))
         all_data["unseen_tasks"] = json.load(open(f"./data/{task}_unseen_tasks.json", "r"))
+        # tasks that knowledge is not useful
+        ban_task_ids = [1, 2, 4, 5, 6, 7, 9, 10, 11, 14, 15, 55, 56, 60, 61, 66, 67, 68, 71, 72, 73, 
+        74, 86, 87, 89, 90, 96, 98, 99, 102, 103, 139, 140, 141, 142, 162, 165, 166, 167, 168, 182, 183, 
+        184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 199, 200, 201, 202, 203, 
+        204, 208, 209, 210, 212, 230, 232, 234, 240, 12, 93, 94, 211, 231, 256] 
+        all_data["unseen_tasks"]["train"] = [task for task in all_data["unseen_tasks"]["train"] if task["sub_task_id"] not in ban_task_ids]
+        all_data["unseen_tasks"]["test"] = [task for task in all_data["unseen_tasks"]["test"] if task["sub_task_id"] not in ban_task_ids]
+        all_data["seen_tasks"]["train"] = [task for task in all_data["seen_tasks"]["train"] if task["sub_task_id"] not in ban_task_ids]
+        all_data["seen_tasks"]["test"] = [task for task in all_data["seen_tasks"]["test"] if task["sub_task_id"] not in ban_task_ids]
+
         seen_task_num = len(all_data["seen_tasks"])
         task_num = len(all_data["seen_tasks"]) + len(all_data["unseen_tasks"])
         #json.dump(all_data["seen_tasks"], open(f"./data/{task}_seen_tasks.json", "w"), indent=4)

@@ -88,7 +88,7 @@ if len(sft_observed_samples) > 0:
 #横轴标签：pretrain ratio
 plt.xlabel("observed samples")
 plt.ylabel("accuracy")
-
+plt.grid(True)
 plt.legend(loc='lower right')
-plt.savefig("induction.pdf")
+plt.savefig("induction.pdf", bbox_inches='tight')
 
