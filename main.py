@@ -9,7 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from datetime import datetime
-from utils import mkdir, setup_seed, convert_seconds, load_task_data, plot_loss_curve, tsne, my_chat_template, create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf
+from utils import (mkdir, setup_seed, convert_seconds, load_task_data, plot_loss_curve, tsne, my_chat_template, 
+                   create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf, post_process_for_prompting)
 from tqdm import tqdm
 from sklearn.manifold import TSNE
 import plotly.express as px
@@ -364,7 +365,14 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
     if method == "finetuning":
 
         params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16)
-        optimizer = torch.optim.Adam([params], lr=args.task_finetune_lr)
+        if args.use_trainable_task_model:
+            optimizer = torch.optim.Adam(
+                [{'params': params, 'lr': args.task_finetune_lr}, 
+                 {'params': nesy.llm.task_model.parameters(), 'lr': args.lr}], 
+                lr=args.task_finetune_lr
+            )
+        else:
+            optimizer = torch.optim.Adam([params], lr=args.task_finetune_lr)
         keep_training = True
         test_loss_ls = []
         
@@ -434,6 +442,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
             
             if method in ["prompting", "icl"]:
                 y_pred = nesy.llm.predict_task(input_ids)
+                y_pred = [post_process_for_prompting(y) for y in y_pred]
             elif method == "finetuning":
                 if args.fuse_method == "delta":
                     new_task_parameters = nesy.llm.allocate(params)
@@ -490,6 +499,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
             
             if method in ["prompting", "icl"]:
                 y_pred = nesy.llm.predict_task(input_ids)
+                y_pred = [post_process_for_prompting(y) for y in y_pred]
             elif method == "finetuning":
                 if args.fuse_method == "delta":
                     new_task_parameters = nesy.llm.allocate(params)
@@ -528,8 +538,11 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
     log.writelines(f"symbolic task testing for method: {method} \n")
     log.flush()
 
-    sys_prompt = "Given the following input and output pairs, please infer the instruction."
+    #sys_prompt = "Given the following input and output pairs, please infer their shared instruction."
 
+    fore_prompt = "I gave a friend an instruction and an input. The friend read the instruction and wrote an output for the input.\nHere is the input-output pair:\n"
+    post_prompt = "\nThe instruction was"
+    
     if method == "itd":
         # sample from p(f)
         seen_train_data = seen_train_data_loader.dataset
@@ -537,7 +550,7 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
         
         knowledge_itd = []
         
-        for task_id in seen_tasks_ids[:5]:
+        for task_id in seen_tasks_ids:
 
             seen_subtask_data = [data for data in seen_train_data if data["sub_task_id"] == task_id]
             knowledge = seen_subtask_data[0]["knowledge"]
@@ -547,16 +560,17 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                 obeserved_samples = random.sample(seen_subtask_data, 5)
                 obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
 
-                input_message = [{"role": "system", "content": sys_prompt}, 
-                                 {"role": "user", \
-                                  "content": "Input: 你好，世界。Output: Hello, world.\n \
-                                              Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
-                                              Input: 我还不是很明白。Output: I'm still not very clear.\n \
-                                              Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
-                                              Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
-                                 {"role": "assistant", "content": "Translate the input text into English."},
-                                 {"role": "user", "content": obeserved_text}]
-                input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
+                # input_message = [{"role": "system", "content": sys_prompt}, 
+                #                  {"role": "user", \
+                #                   "content": "Input: 你好，世界。Output: Hello, world.\n \
+                #                               Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
+                #                               Input: 我还不是很明白。Output: I'm still not very clear.\n \
+                #                               Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
+                #                               Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+                #                  {"role": "assistant", "content": "Translate the input text into English."},
+                #                  {"role": "user", "content": obeserved_text}]
+                #input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
+                input_text = fore_prompt + obeserved_text + post_prompt
                 input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
                 predicted_knowledge = nesy.llm.predict_task(input_ids)[0].split("\n")[0]
@@ -628,7 +642,14 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
         seen_task_test_data_loader = DataLoader(seen_test_data_induction, batch_size=args.batch_size//4, shuffle=True)
 
         params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16)
-        optimizer = torch.optim.Adam([params], lr=args.task_finetune_lr)
+        if args.use_trainable_task_model:
+            optimizer = torch.optim.Adam(
+                [{'params': params, 'lr': args.task_finetune_lr}, 
+                 {'params': nesy.llm.task_model.parameters(), 'lr': args.lr}], 
+                lr=args.task_finetune_lr
+            )
+        else:
+            optimizer = torch.optim.Adam([params], lr=args.task_finetune_lr)        
         keep_training = True
         test_loss_ls = []
         
@@ -643,8 +664,9 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                             knowledge_batch = batch["knowledge"]
                             batch_size = len(knowledge_batch)
                             #io_batch = [prompt.format(batch["io_text"][i]) for i in range(batch_size)]
-                            io_message = [[{"role": "system", "content": sys_prompt}, {"role": "user", "content": batch["io_text"][i]}] for i in range(batch_size)]
-                            io_batch = [nesy.llm.tokenizer.apply_chat_template(io_message[i], tokenize=False) for i in range(batch_size)]
+                            #io_message = [[{"role": "system", "content": sys_prompt}, {"role": "user", "content": batch["io_text"][i]}] for i in range(batch_size)]
+                            #io_batch = [nesy.llm.tokenizer.apply_chat_template(io_message[i], tokenize=False) for i in range(batch_size)]
+                            io_batch = [fore_prompt + batch["io_text"][i] + post_prompt for i in range(batch_size)]
                             expanded_params = params.repeat_interleave(len(io_batch), dim=0)
                             test_loss += nesy.compute_task_loss(expanded_params, io_batch, knowledge_batch)
                         test_loss /= len(seen_task_test_data_loader)
@@ -659,8 +681,9 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                 optimizer.zero_grad()
                 knowledge_batch = batch["knowledge"]
                 batch_size = len(knowledge_batch)
-                io_message = [[{"role": "system", "content": sys_prompt}, {"role": "user", "content": batch["io_text"][i]}] for i in range(batch_size)]
-                io_batch = [nesy.llm.tokenizer.apply_chat_template(io_message[i], tokenize=False) for i in range(batch_size)]
+                #io_message = [[{"role": "system", "content": sys_prompt}, {"role": "user", "content": batch["io_text"][i]}] for i in range(batch_size)]
+                #io_batch = [nesy.llm.tokenizer.apply_chat_template(io_message[i], tokenize=False) for i in range(batch_size)]
+                io_batch = [fore_prompt + batch["io_text"][i] + post_prompt for i in range(batch_size)]
                 expanded_params = params.repeat_interleave(len(io_batch), dim=0)
                 task_loss = nesy.compute_task_loss(expanded_params, io_batch, knowledge_batch)
                 task_loss.backward()
@@ -695,12 +718,16 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                                  {"role": "user", "content": obeserved_text}]
             else:
                 obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
-                input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
-            input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
-            input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
+                input_message = fore_prompt + obeserved_text + post_prompt
+                #input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
+            #input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
+            input_ids = nesy.llm.tokenizer(input_message, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
             if method in ["prompting", "icl"]:
-                predicted_knowledge = nesy.llm.predict_task(input_ids)
+                predicted_knowledge = nesy.llm.predict_task(input_ids)[0]
+                #predicted_ids = nesy.llm.task_model.generate(input_ids, max_new_tokens=nesy.args.max_token)
+                #predicted_knowledge = nesy.llm.tokenizer.decode(predicted_ids[0][len(input_ids[0]):], skip_special_tokens=True)
+                predicted_knowledge = post_process_for_prompting(predicted_knowledge)
             elif method in ["finetuning", "itd"]:
                 if args.fuse_method == "delta":
                     new_task_parameters = nesy.llm.allocate(params)
@@ -750,13 +777,16 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                                  {"role": "user", "content": obeserved_text}]
             else:
                 obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
-                input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
-
-            input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
-            input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
+                #input_message = [{"role": "system", "content": sys_prompt}, {"role": "user", "content": obeserved_text}]
+                input_message = fore_prompt + obeserved_text + post_prompt
+            #input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
+            input_ids = nesy.llm.tokenizer(input_message, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
             if method in ["prompting", "icl"]:
-                predicted_knowledge = nesy.llm.predict_task(input_ids)
+                predicted_knowledge = nesy.llm.predict_task(input_ids)[0]
+                #predicted_ids = nesy.llm.task_model.generate(input_ids, max_new_tokens=nesy.args.max_token)
+                #predicted_knowledge = nesy.llm.tokenizer.decode(predicted_ids[0][len(input_ids[0]):], skip_special_tokens=True)
+                predicted_knowledge = post_process_for_prompting(predicted_knowledge)
             elif method in ["finetuning", "itd"]:
                 if args.fuse_method == "delta":
                     new_task_parameters = nesy.llm.allocate(params)
@@ -1142,11 +1172,14 @@ def main(args):
         tagi_train_hypernet(args, data["seen_tasks"]["train"], nesy, prompt_template, hypernet_log)
 
     else:
-        symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
-        test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
-        neural_task_test_log = open(f"{args.exp_dir}/neural_task.log", "w")
-        test_neural_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, neural_task_test_log, method=args.method)
-
+        if args.method in ["prompting", "finetuning", "itd"]:
+            symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
+            test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, 
+                               prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
+        # if args.method in ["prompting", "finetuning", "tagi"]:
+        #     neural_task_test_log = open(f"{args.exp_dir}/neural_task.log", "w")
+        #     test_neural_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, 
+        #                      prompt_template, neural_evaluater, neural_task_test_log, method=args.method)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -1155,7 +1188,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
-    parser.add_argument('--method', type=str, default="nesy", help='the method to train the model.')
+    parser.add_argument('--method', type=str, default="prompting", help='the method to train the model.')
     parser.add_argument('--prior', type=str, default="gaussian", help='the prior distribution of the model.')
     parser.add_argument('--nf', action="store_true", default=False, help='Whether to use the flow model.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')

@@ -12,7 +12,7 @@ plt.rcParams['grid.alpha'] = 0.3
 
 def load_data(exp_dir, selected_epoch):
 
-    pretrain_ratios = []
+    recon_weights = []
     seen_induction_accuracy = []
     seen_deduction_accuracy = []
     unseen_induction_accuracy = []
@@ -20,7 +20,7 @@ def load_data(exp_dir, selected_epoch):
 
     for exp_name in os.listdir(exp_dir):
         exp_path = os.path.join(exp_dir, exp_name)
-        train_ratio = exp_name.split("pretrain-")[1]
+        recon_weight = exp_name.split("task")[0].strip("recon")
         find_seen_induction_accuracy = False
         find_unseen_induction_accuracy = False
         find_seen_deduction_accuracy = False
@@ -53,15 +53,15 @@ def load_data(exp_dir, selected_epoch):
                 continue
             
             if find_seen_induction_accuracy and find_unseen_induction_accuracy and find_seen_deduction_accuracy and find_unseen_deduction_accuracy:
-                pretrain_ratios.append(float(train_ratio))
+                recon_weights.append(float(recon_weight))
                 seen_induction_accuracy.append(this_seen_induction_accuracy)
                 unseen_induction_accuracy.append(this_unseen_induction_accuracy)
                 seen_deduction_accuracy.append(this_seen_deduction_accuracy)
                 unseen_deduction_accuracy.append(this_unseen_deduction_accuracy)
 
-    # 将所有列表按pretrain_ratios升序排序
-    pretrain_ratios, seen_induction_accuracy, unseen_induction_accuracy, seen_deduction_accuracy, unseen_deduction_accuracy \
-    = zip(*sorted(zip(pretrain_ratios, seen_induction_accuracy, unseen_induction_accuracy, seen_deduction_accuracy, unseen_deduction_accuracy), key=lambda x: x[0]))
+    # 将所有列表按recon_weights升序排序
+    recon_weights, seen_induction_accuracy, unseen_induction_accuracy, seen_deduction_accuracy, unseen_deduction_accuracy \
+    = zip(*sorted(zip(recon_weights, seen_induction_accuracy, unseen_induction_accuracy, seen_deduction_accuracy, unseen_deduction_accuracy), key=lambda x: x[0]))
 
     # 将seen和unseen的accuracy按0.9和0.1的比例混合，得到induction的accuracy
     induction_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(seen_induction_accuracy, unseen_induction_accuracy)]
@@ -75,32 +75,26 @@ def load_data(exp_dir, selected_epoch):
     # plt.plot(pretrain_ratios, unseen_deduction_accuracy, label="unseen deduction", color='#f39c12')
 
     # 筛选所有pretrain_ratios小于0.005的样本点
-    idx = [i for i, pretrain_ratio in enumerate(pretrain_ratios) if pretrain_ratio > 0.01][0]
-    pretrain_ratios = pretrain_ratios[:idx]
-    induction_accuracy = induction_accuracy[:idx]
-    deduction_accuracy = deduction_accuracy[:idx]
+    # idx = [i for i, recon_weight in enumerate(recon_weights) if recon_weight > 0.01][0]
+    # recon_weights = recon_weights[:idx]
+    # induction_accuracy = induction_accuracy[:idx]
+    # deduction_accuracy = deduction_accuracy[:idx]
 
-    return pretrain_ratios, induction_accuracy, deduction_accuracy
+    return recon_weights, induction_accuracy, deduction_accuracy
 
 
-selected_epoch = 1
+selected_epoch = 10
 
-exp_dir = "../exp_generalize"
-pretrain_ratios_sni, induction_accuracy_sni, deduction_accuracy_sni = load_data(exp_dir, selected_epoch)
+exp_dir = "../exp_reg"
+recon_weights_sni, induction_accuracy_sni, deduction_accuracy_sni = load_data(exp_dir, selected_epoch)
 
-exp_dir = "../exp_p3_final_generalize"
-pretrain_ratios_p3, induction_accuracy_p3, deduction_accuracy_p3 = load_data(exp_dir, selected_epoch)
-
-plt.plot(pretrain_ratios_sni, induction_accuracy_sni, label="induction (SNI)", color='#1abc9c', marker='o', linestyle='-')
-plt.plot(pretrain_ratios_sni, deduction_accuracy_sni, label="deduction (SNI)", color='#3498db', marker='o', linestyle='-')
-
-plt.plot(pretrain_ratios_p3, induction_accuracy_p3, label="induction (P3)", color='#1abc9c', marker='o', linestyle='--')
-plt.plot(pretrain_ratios_p3, deduction_accuracy_p3, label="deduction (P3)", color='#3498db', marker='o', linestyle='--')
+plt.plot(recon_weights_sni, induction_accuracy_sni, label="induction (SNI)", color='#1abc9c', marker='o', linestyle='-')
+plt.plot(recon_weights_sni, deduction_accuracy_sni, label="deduction (SNI)", color='#3498db', marker='o', linestyle='-')
 
 #横轴标签：pretrain ratio
-plt.xlabel("pretrain ratio")
+plt.xlabel("recon weight")
 plt.ylabel("accuracy")
 plt.grid(True)
 
 plt.legend(loc='lower right')
-plt.savefig(f"generalization.pdf", bbox_inches='tight')
+plt.savefig(f"tradeoff.pdf", bbox_inches='tight')

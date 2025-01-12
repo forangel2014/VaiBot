@@ -72,6 +72,12 @@ def get_gpu_memory_usage():
 
     return info
 
+def post_process_for_prompting(predicted_knowledge):
+    predicted_knowledge = predicted_knowledge.split("\n")[0]
+    if len(predicted_knowledge.split(" ")[0]) == 1:
+        predicted_knowledge = predicted_knowledge[2:]
+    return predicted_knowledge
+
 def plot_loss_curve(loss_dict, name):
     # 创建一个新的图形
     plt.figure()
