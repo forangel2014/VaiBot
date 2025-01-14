@@ -1,16 +1,17 @@
 import os
 import matplotlib.pyplot as plt
 
-exp_dir = "../exp_induction"
+nesy_exp_dir = "../exp_induction"
+sft_exp_dir = "../exp_induction_new"
 selected_epoch = 10
 
 nesy_observed_samples = []
 nesy_seen_induction_accuracy = []
 nesy_unseen_induction_accuracy = []
 
-for exp_name in os.listdir(exp_dir):
+for exp_name in os.listdir(nesy_exp_dir):
     if "vae" in exp_name:
-        exp_path = os.path.join(exp_dir, exp_name)
+        exp_path = os.path.join(nesy_exp_dir, exp_name)
         observed_sample = int(exp_name.split("induction-")[1])
         find_seen_induction_accuracy = False
         find_unseen_induction_accuracy = False
@@ -42,9 +43,9 @@ sft_observed_samples = []
 sft_seen_induction_accuracy = []
 sft_unseen_induction_accuracy = []
 
-for exp_name in os.listdir(exp_dir):
+for exp_name in os.listdir(sft_exp_dir):
     if "finetuning" in exp_name:
-        exp_path = os.path.join(exp_dir, exp_name)
+        exp_path = os.path.join(sft_exp_dir, exp_name)
         observed_sample = int(exp_name.split("finetuning-")[1])
         find_seen_induction_accuracy = False
         find_unseen_induction_accuracy = False
@@ -77,7 +78,6 @@ if len(nesy_observed_samples) > 0:
     = zip(*sorted(zip(nesy_observed_samples, nesy_seen_induction_accuracy, nesy_unseen_induction_accuracy), key=lambda x: x[0]))
     nesy_induction_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(nesy_seen_induction_accuracy, nesy_unseen_induction_accuracy)]
     plt.plot(nesy_observed_samples, nesy_induction_accuracy, label="nesy", color='#2ecc71', marker='o')
-
 
 if len(sft_observed_samples) > 0:
     sft_observed_samples, sft_seen_induction_accuracy, sft_unseen_induction_accuracy \

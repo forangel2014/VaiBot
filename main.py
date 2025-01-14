@@ -1176,14 +1176,14 @@ def main(args):
             symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
             test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, 
                                prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
-        # if args.method in ["prompting", "finetuning", "tagi"]:
-        #     neural_task_test_log = open(f"{args.exp_dir}/neural_task.log", "w")
-        #     test_neural_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, 
-        #                      prompt_template, neural_evaluater, neural_task_test_log, method=args.method)
+        if args.method in ["prompting", "finetuning", "tagi"]:
+            neural_task_test_log = open(f"{args.exp_dir}/neural_task.log", "w")
+            test_neural_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, 
+                             prompt_template, neural_evaluater, neural_task_test_log, method=args.method)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="p3", help='name of dataset.')
+    parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
     parser.add_argument('--meta_exp_dir', type=str, default="./exp", help='the directory to save all the experiment results.')
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
