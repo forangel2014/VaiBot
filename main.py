@@ -550,7 +550,7 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
         
         knowledge_itd = []
         
-        for task_id in seen_tasks_ids:
+        for task_id in tqdm(seen_tasks_ids):
 
             seen_subtask_data = [data for data in seen_train_data if data["sub_task_id"] == task_id]
             knowledge = seen_subtask_data[0]["knowledge"]
@@ -573,12 +573,16 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                 input_text = fore_prompt + obeserved_text + post_prompt
                 input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
-                predicted_knowledge = nesy.llm.predict_task(input_ids)[0].split("\n")[0]
-                knowledge_itd.append(predicted_knowledge)
+                for _ in range(5):
+                    predicted_knowledge = nesy.llm.predict_task(input_ids, sample=True)[0].split("\n")[0]
+                    predicted_knowledge = post_process_for_prompting(predicted_knowledge)
+                    knowledge_itd.append(predicted_knowledge)
         
         # sample from p(x, y|f)
         instance_itd = []
-        for task_id_itd, knowledge in enumerate(knowledge_itd):
+        old_max_token = nesy.args.max_token
+        nesy.args.max_token = 200
+        for task_id_itd, knowledge in tqdm(enumerate(knowledge_itd)):
 
             task_id_itd += len(seen_tasks_ids)
 
@@ -592,21 +596,34 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                                               Input: 我还不是很明白。Output: I'm still not very clear.\n \
                                               Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
                                               Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+                                 {"role": "user", "content": "Rate the review in score from 1 to 5."},
+                                 {"role": "assistant", \
+                                  "content": "Input: Super delivery, I love it. Output: 5.\n \
+                                              Input: Good service, but the price is a little bit too high. Output: 4.\n \
+                                              Input: I hate it, they are too slow. Output: 1.\n \
+                                              Input: The best transportation service. Output: 5.\n \
+                                              Input: Not bad. Output: 3.\n"},
                                  {"role": "user", "content": knowledge}]
                 input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
                 input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
-                instance_text = nesy.llm.predict_task(input_ids)[0]
-                instances = instance_text.split("\n")
-                for instance in instances:
-                    input_, output_ = instance.split("Output: ")
-                    input_ = input_.split("Input: ")[-1]
-                    output_ = output_.strip()
-                    instance_itd.append({
-                        "input": input_,
-                        "target": output_,
-                        "knowledge": knowledge,
-                        "sub_task_id": task_id_itd
-                        })
+                for _ in range(5):
+                    instance_text = nesy.llm.predict_task(input_ids)[0]
+                    instances = instance_text.split("\n")
+                    for instance in instances:
+                        try:
+                            input_, output_ = instance.split("Output: ")
+                            input_ = input_.split("Input: ")[-1]
+                            output_ = output_.strip()
+                            if len(input_) > 3 and len(output_) > 3:
+                                instance_itd.append({
+                                        "input": input_,
+                                        "target": output_,
+                                        "knowledge": knowledge,
+                                        "sub_task_id": task_id_itd
+                                        })
+                        except:
+                            continue
+        nesy.args.max_token = old_max_token
 
     if method in ["finetuning", "itd"]:
 
@@ -624,19 +641,21 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
             seen_subtask_test_data = [data for data in seen_test_data if data["sub_task_id"] == task_id]
             knowledge = seen_subtask_train_data[0]["knowledge"]
 
-            for _ in range(10):
-                io_sample_train = random.sample(seen_subtask_train_data, args.test_sample_num)
-                io_text_train = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in io_sample_train])
-                seen_train_data_induction.append({
+            if len(seen_subtask_train_data) >= args.test_sample_num:
+                for _ in range(10):
+                    io_sample_train = random.sample(seen_subtask_train_data, args.test_sample_num)
+                    io_text_train = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in io_sample_train])
+                    seen_train_data_induction.append({
+                        "knowledge": knowledge,
+                        "io_text": io_text_train
+                        })
+            if len(seen_subtask_test_data) > 0:
+                io_sample_test = random.sample(seen_subtask_test_data, args.test_sample_num)
+                io_text_test = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in io_sample_test])
+                seen_test_data_induction.append({
                     "knowledge": knowledge,
-                    "io_text": io_text_train
+                    "io_text": io_text_test
                     })
-            io_sample_test = random.sample(seen_subtask_test_data, args.test_sample_num)
-            io_text_test = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in io_sample_test])
-            seen_test_data_induction.append({
-                "knowledge": knowledge,
-                "io_text": io_text_test
-                })
         
         seen_task_train_data_loader = DataLoader(seen_train_data_induction, batch_size=args.batch_size//4, shuffle=True)
         seen_task_test_data_loader = DataLoader(seen_test_data_induction, batch_size=args.batch_size//4, shuffle=True)
@@ -746,7 +765,6 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
     accuracy = num_correct_symbolic / num_test_symbolic
     log.writelines(f"symbolic seen task accuracy of method {method}: {accuracy} \n")
     log.flush()
-
 
     unseen_test_data = unseen_test_data_loader.dataset
     unseen_tasks_ids = list(set([sample["sub_task_id"] for sample in unseen_test_data]))
@@ -906,6 +924,193 @@ def iterative_inference(args, unseen_train_data_loader, unseen_test_data_loader,
         log.writelines(f"induced knowledge: {knowledge} \n")
         log.flush()
 
+def refinement_inference(args, train_data_loader, test_data_loader, nesy, prompt_template, evaluater, log, name):
+
+    train_data = train_data_loader.dataset
+    test_data = test_data_loader.dataset
+
+    num_correct = 0
+    num_test = 0
+
+    for batch in test_data_loader:
+        
+        with torch.no_grad():
+            knowledge_batch = batch["knowledge"]
+            x_batch = batch["input"]
+            x_batch = [prompt_template.format(x) for x in x_batch]
+            y_batch = batch["target"]
+            
+            results = nesy.eval_task(knowledge_batch, x_batch, y_batch, evaluater)
+            for result in results:
+                log.writelines(f"{json.dumps(result, indent=4)}\n")
+                num_correct += result["score"]
+                num_test += 1
+                log.flush()
+
+    accuracy = num_correct / num_test
+    log.writelines(f"groundtruth knowledge injection accuracy on {name} samples: {accuracy} \n")
+    log.flush()
+
+    all_tasks_ids = list(set([sample["sub_task_id"] for sample in train_data]))
+
+    num_correct_finetune = 0
+    num_test_finetune = 0
+    num_correct_refine = 0
+    num_test_refine = 0
+
+    for task_id in all_tasks_ids:
+
+        # subtask_train_data = [data for data in train_data if data["sub_task_id"] == task_id]
+        # subtask_test_data = [data for data in test_data if data["sub_task_id"] == task_id]
+
+        subtask_data = [data for data in train_data if data["sub_task_id"] == task_id]
+        subtask_train_data = subtask_data#[:-1]
+        subtask_valid_data = subtask_data[-1:]
+        subtask_test_data = [data for data in test_data if data["sub_task_id"] == task_id]
+
+        subtask_train_data_loader = DataLoader(subtask_train_data, batch_size=args.batch_size, shuffle=True)
+        subtask_valid_data_loader = DataLoader(subtask_valid_data, batch_size=args.batch_size, shuffle=True)
+        subtask_test_data_loader = DataLoader(subtask_test_data, batch_size=args.batch_size, shuffle=True)
+        knowledge = subtask_valid_data[0]["knowledge"]
+
+        knowledge_ids = nesy.llm.tokenizer(knowledge, return_tensors="pt").input_ids.to(nesy.args.encoder_device)
+
+        if args.indirect_finetune:
+            trained_params, test_loss_ls = train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template)
+        else:
+            trained_params, test_loss_ls = train_subtask(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template)
+
+        with torch.no_grad():
+
+            if args.method == "vaeflow":
+                trained_latent = trained_params.to(nesy.args.flow_device)
+                trained_latent = nesy.flow_backward(trained_params).to(nesy.args.decoder_device)
+            else:
+                if args.nf:
+                    trained_latent = nesy.flow_backward(trained_params.to(nesy.args.flow_device)).to(nesy.args.decoder_device)
+                else:
+                    trained_latent = trained_params.to(nesy.args.decoder_device)
+
+            if nesy.args.use_instance_in_decoder:
+                batch = random.choice(subtask_train_data_loader.dataset)
+                x = batch["input"]
+                y = batch["target"]
+                instance_text = f"input: {x}, target: {y}. This task is to:"
+                instance_ids = nesy.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.decoder_device)
+            else:
+                instance_ids = None
+                
+            predicted_knowledge = nesy.predict_knowledge(trained_latent, sample_from_guassian=False, instance=instance_ids)
+
+            for batch in subtask_test_data_loader:
+                
+                with torch.no_grad():
+                    knowledge_batch = [predicted_knowledge] * len(batch["input"])
+                    x_batch = batch["input"]
+                    x_batch = [prompt_template.format(x) for x in x_batch]
+                    y_batch = batch["target"]
+
+                    results = nesy.eval_task(knowledge_batch, x_batch, y_batch, evaluater)
+                    for result in results:
+                        log.writelines(f"{json.dumps(result, indent=4)}\n")
+                        num_correct_refine += result["score"]
+                        num_test_refine += 1
+                        log.flush()
+
+                    x_id = nesy.llm.tokenizer(x_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.task_device)
+                    y_pred = nesy.llm.predict_task(x_id, trained_params.repeat_interleave(len(x_batch), dim=0))
+                    results = [
+                        {
+                            "knowledge": knowledge,
+                            "x": x_batch[i],
+                            "y_true": y_batch[i],
+                            "y_pred": y_pred[i],
+                            #"score": evaluater(y_pred[i], y_batch[i])
+                            "score": evaluater(y_pred[i], y_batch[i], x_batch[i], knowledge)
+                        }
+                        for i in range(len(x_batch))
+                    ]
+
+                    for result in results:
+                        log.writelines(f"{json.dumps(result, indent=4)}\n")
+                        num_correct_finetune += result["score"]
+                        num_test_finetune += 1
+                        log.flush()
+
+    accuracy_finetune = num_correct_finetune / num_test_finetune
+    accuracy_refine = num_correct_refine / num_test_refine
+    log.writelines(f"finetune knowledge injection accuracy on {name} samples: {accuracy_finetune} \n")
+    log.writelines(f"refined knowledge injection accuracy on {name} samples: {accuracy_refine} \n")
+    log.flush()
+
+def icl_inference(args, train_data_loader, test_data_loader, nesy, prompt_template, evaluater, log, name):
+
+    train_data = train_data_loader.dataset
+    test_data = test_data_loader.dataset
+
+    all_tasks_ids = list(set([sample["sub_task_id"] for sample in train_data]))
+
+    num_correct = 0
+    num_test = 0
+
+    for task_id in all_tasks_ids:
+
+        # subtask_train_data = [data for data in train_data if data["sub_task_id"] == task_id]
+        # subtask_test_data = [data for data in test_data if data["sub_task_id"] == task_id]
+
+        subtask_data = [data for data in train_data if data["sub_task_id"] == task_id]
+        subtask_train_data = subtask_data#[:-1]
+        subtask_valid_data = subtask_data[-1:]
+        subtask_test_data = [data for data in test_data if data["sub_task_id"] == task_id]
+
+        subtask_train_data_loader = DataLoader(subtask_train_data, batch_size=args.batch_size, shuffle=True)
+        subtask_valid_data_loader = DataLoader(subtask_valid_data, batch_size=args.batch_size, shuffle=True)
+        subtask_test_data_loader = DataLoader(subtask_test_data, batch_size=args.batch_size, shuffle=True)
+        knowledge = subtask_valid_data[0]["knowledge"]
+
+        for batch in subtask_test_data_loader:
+            
+            with torch.no_grad():
+
+                x_batch = batch["input"]
+                x_batch = [prompt_template.format(x) for x in x_batch]
+                y_batch = batch["target"]
+
+                obeserved_samples = random.sample(subtask_train_data, args.test_sample_num)
+
+                # input_message = []
+                # for obeserved_sample in obeserved_samples:
+                #     input_message.append({"role": "user", "content": obeserved_sample["input"]})
+                #     input_message.append({"role": "assistant", "content": obeserved_sample["target"]})
+                # input_batch = [input_message + [{"role": "user", "content": x}] for x in x_batch]
+                # input_text = [nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False) for input_message in input_batch]
+
+                input_message = "\n".join([f"{data['input']} {data['target']}" for data in obeserved_samples])
+                input_text = [input_message + "\n" + x for x in x_batch]
+                input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt", padding="longest").input_ids.to(nesy.args.task_device)
+                y_pred = nesy.llm.predict_task(input_ids)
+                results = [
+                    {
+                        "knowledge": knowledge,
+                        "x": x_batch[i],
+                        "y_true": y_batch[i],
+                        "y_pred": y_pred[i],
+                        #"score": evaluater(y_pred[i], y_batch[i])
+                        "score": evaluater(y_pred[i], y_batch[i], x_batch[i], knowledge)
+                    }
+                    for i in range(len(x_batch))
+                ]
+
+                for result in results:
+                    log.writelines(f"{json.dumps(result, indent=4)}\n")
+                    num_correct += result["score"]
+                    num_test += 1
+                    log.flush()
+
+    accuracy = num_correct / num_test
+    log.writelines(f"ICL accuracy on {name} samples: {accuracy} \n")
+    log.flush()
+
 def visualize_knowledge(args, epoch, seen_test_data, unseen_test_data, nesy, prompt_template, evaluater, name):
 
     all_tasks_ids = list(set([sample["sub_task_id"] for sample in seen_test_data]))
@@ -944,15 +1149,57 @@ def visualize_knowledge(args, epoch, seen_test_data, unseen_test_data, nesy, pro
 
     # Create a DataFrame for Plotly
     df = pd.DataFrame(tsne_result, columns=['x', 'y'])
-    df['knowledge'] = [knowledge for knowledge in all_groundtruth_knowledge]  # 显示前50个字符
+    df['knowledge'] = [knowledge for knowledge in all_groundtruth_knowledge]
 
-    # Create an interactive scatter plot with hover text
-    fig = px.scatter(df, x='x', y='y', hover_data={'knowledge': True, 'x': False, 'y': False})
+    # 创建散点图,使用更深的蓝色
+    fig = px.scatter(
+        df, 
+        x='x', 
+        y='y',
+        hover_data={'knowledge': True, 'x': False, 'y': False},
+        color_discrete_sequence=['#0052CC'],  # 使用更深的蓝色 (#0052CC)
+        template='plotly_white',
+        width=1200,  # 设置固定宽度
+        height=800  # 设置固定高度,保持正方形比例
+    )
 
-    # Show the plot
-    #fig.show()
+    # 保留坐标轴线但移除刻度和标签,设置浅灰色背景
+    fig.update_layout(
+        xaxis=dict(
+            title=None,  # 移除x轴标签
+            showticklabels=False,  # 移除刻度标签
+            showgrid=True,
+            gridcolor='white',  # 网格线设为白色
+            zeroline=False,
+            scaleanchor="y",  # 确保x和y轴使用相同的缩放
+            scaleratio=1      # 保持1:1的比例
+        ),
+        yaxis=dict(
+            title=None,  # 移除y轴标签
+            showticklabels=False,  # 移除刻度标签
+            showgrid=True,
+            gridcolor='white',  # 网格线设为白色
+            zeroline=False
+        ),
+        showlegend=False,
+        margin=dict(l=20, r=20, t=20, b=20),  # 保留适当边距
+        plot_bgcolor='#F5F5F5',  # 设置浅灰色背景
+        paper_bgcolor='white'    # 图表外部背景保持白色
+    )
+
+    # 更新点的样式,增加不透明度
+    fig.update_traces(
+        marker=dict(
+            size=8,
+            opacity=0.8,  # 增加不透明度
+            line=dict(width=1, color='#E5E5E5')
+        )
+    )
+
     mkdir(f"{args.exp_dir}/epoch{epoch}")
+    # 保存HTML和PDF格式,使用相同的尺寸设置
     fig.write_html(f"{args.exp_dir}/epoch{epoch}/latent.html")
+    fig.write_image(f"{args.exp_dir}/epoch{epoch}/latent.pdf")
 
 def main(args):
 
@@ -1141,20 +1388,18 @@ def main(args):
                     train_log.flush()
 
     elif args.method == "nesy_iterative":
-        # import string
-        # synthetic_data = []
-        # for _ in range(100):
-        #     #随机生成一个大小写字母构成的字符串
-        #     input_ = "".join(random.choices(string.ascii_letters, k=10))
-        #     #输出为逆转大小写
-        #     output_ = input_.swapcase()
-        #     synthetic_data.append({"input": input_, "target": output_, "sub_task_id": 0, "knowledge": "reverse the case of the input"})
-        # random.shuffle(synthetic_data)
-        # unseen_train_data_loader = DataLoader(synthetic_data[:90], batch_size=args.batch_size, shuffle=True)
-        # unseen_test_data_loader = DataLoader(synthetic_data[90:], batch_size=args.batch_size, shuffle=True)
+        # log = open(f"{args.exp_dir}/iterative.log", "w")
+        # iterative_inference(args, unseen_train_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, log)
 
-        log = open(f"{args.exp_dir}/iterative.log", "w")
-        iterative_inference(args, unseen_train_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, log)
+        args.task_finetune_step /= 4
+        log = open(f"{args.exp_dir}/refinement.log", "a")
+        refinement_inference(args, seen_train_data_loader, seen_test_data_loader, nesy, prompt_template, neural_evaluater, log, name="seen task")
+        refinement_inference(args, unseen_train_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, log, name="unseen task")
+
+    elif args.method == "icl":
+        icl_log = open(f"{args.exp_dir}/icl.log", "w")
+        icl_inference(args, seen_train_data_loader, seen_test_data_loader, nesy, prompt_template, neural_evaluater, icl_log, name="seen task")
+        icl_inference(args, unseen_train_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, icl_log, name="unseen task")
 
     elif args.method == "nesy_visualize":
         visualize_knowledge(args, start_epoch, data["seen_tasks"]["test"], data["unseen_tasks"]["test"], nesy, prompt_template, neural_evaluater, name="unseen task")
@@ -1188,7 +1433,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
-    parser.add_argument('--method', type=str, default="prompting", help='the method to train the model.')
+    parser.add_argument('--method', type=str, default="nesy", help='the method to train the model.')
     parser.add_argument('--prior', type=str, default="gaussian", help='the prior distribution of the model.')
     parser.add_argument('--nf', action="store_true", default=False, help='Whether to use the flow model.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
@@ -1229,9 +1474,9 @@ if __name__ == '__main__':
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
     parser.add_argument('--num_soft_token', type=int, default=10, help='max number of tokens to generate.')
     
-    #parser.add_argument('--load_exp', type=str, default="vae-pretrain", help='name of dataset.')
+    #parser.add_argument('--load_exp', type=str, default="../exp_final/vae-pretrain", help='name of dataset.')
     parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
-    parser.add_argument('--load_epoch', type=int, default=1, help='the epoch of the pretrained model.')
+    parser.add_argument('--load_epoch', type=int, default=10, help='the epoch of the pretrained model.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether to ignore the existing model.')
     parser.add_argument('--results_name', type=str, default=None, help='the name of the experiment.')
     #parser.add_argument('--model_name_or_path', type=str, default="/netcache/huggingface/llama-2-7b-chat-hf", help='Tasks for instructions generation')

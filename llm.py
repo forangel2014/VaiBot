@@ -27,7 +27,7 @@ class WrappedLLM(nn.Module):
         if args.task_model_name_or_path is None:
             args.task_model_name_or_path = args.model_name_or_path
 
-        self.task_model = AutoModelForCausalLM.from_pretrained(args.task_model_name_or_path,
+        self.task_model_base = AutoModelForCausalLM.from_pretrained(args.task_model_name_or_path,
                                                         device_map=args.task_device,#"auto",
                                                         torch_dtype=self.dtype, 
                                                         trust_remote_code=True,
@@ -46,9 +46,10 @@ class WrappedLLM(nn.Module):
                 bias="none",
                 task_type="CAUSAL_LM",
             )
-            self.task_model = get_peft_model(self.task_model, self.task_config)
+            self.task_model = get_peft_model(self.task_model_base, self.task_config)
             self.task_model.print_trainable_parameters()
         else:
+            self.task_model = self.task_model_base
             for params in self.task_model.parameters():
                 params.requires_grad = False
 
@@ -147,7 +148,7 @@ class WrappedLLM(nn.Module):
 
     def load(self, dir):
         if self.args.use_trainable_task_model:
-            self.task_model = PeftModel.from_pretrained(self.task_model, os.path.join(dir, "task_model_lora")).to(self.args.task_device)
+            self.task_model = PeftModel.from_pretrained(self.task_model_base, os.path.join(dir, "task_model_lora")).to(self.args.task_device)
         self.encoder = PeftModel.from_pretrained(self.encoder_model.model, os.path.join(dir, "encoder_lora")).to(self.args.encoder_device)
         self.decoder = PeftModel.from_pretrained(self.decoder_model, os.path.join(dir, "decoder_lora")).to(self.args.decoder_device)
         self.param_info = json.load(open(os.path.join(dir, "params_info.json"), "r"))
@@ -278,7 +279,7 @@ class WrappedLLM(nn.Module):
 
         return outputs[0]#.float()
 
-    def predict_task(self, x_id, new_task_parameters=None):
+    def predict_task(self, x_id, new_task_parameters=None, sample=False):
         
         if self.args.fuse_method == "delta":
             
@@ -325,17 +326,30 @@ class WrappedLLM(nn.Module):
                 attention_mask = x_id != self.tokenizer.pad_token_id
                 total_attention = attention_mask
 
-            response = self.task_model.generate(inputs_embeds=total_embeds,
-                                    attention_mask=total_attention,
-                                    max_new_tokens=self.args.max_token, 
-                                    early_stopping=True,
-                                    eos_token_id=self.tokenizer.eos_token_id,
-                                    pad_token_id=self.tokenizer.pad_token_id,
-                                    #temperature=0.0,
-                                    #do_sample=False,
-                                    # stopping_criteria=stopping_criteria
-                                    )
+            if sample:
+                response = self.task_model.generate(inputs_embeds=total_embeds,
+                                        attention_mask=total_attention,
+                                        max_new_tokens=self.args.max_token, 
+                                        early_stopping=True,
+                                        eos_token_id=self.tokenizer.eos_token_id,
+                                        pad_token_id=self.tokenizer.pad_token_id,
+                                        temperature=1.0,
+                                        do_sample=True,
+                                        # stopping_criteria=stopping_criteria
+                                        )
         
+            else:
+                response = self.task_model.generate(inputs_embeds=total_embeds,
+                                        attention_mask=total_attention,
+                                        max_new_tokens=self.args.max_token, 
+                                        early_stopping=True,
+                                        eos_token_id=self.tokenizer.eos_token_id,
+                                        pad_token_id=self.tokenizer.pad_token_id,
+                                        #temperature=0.0,
+                                        #do_sample=False,
+                                        # stopping_criteria=stopping_criteria
+                                        )
+            
             text = [self.tokenizer.decode(response[i], skip_special_tokens=True) for i in range(batch_size)]
         
         return text
