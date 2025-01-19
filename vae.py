@@ -92,6 +92,8 @@ class Nesy(nn.Module):
             outputs = self.llm.decode(embedding, labels, instance_embedding)
         else:
             outputs = self.llm.decode(embedding, labels)
+            # instance_embedding = self.llm.decoder_model.model.embed_tokens(instance)
+            # outputs = self.llm.decode(embedding, labels, instance_embedding)
         return outputs
 
     def predict_knowledge(self, context, sample_from_guassian=True, instance=None):
@@ -106,6 +108,8 @@ class Nesy(nn.Module):
             sampled_ids = self.llm.predict_knowledge(embedding, instance_embedding)
         else:
             sampled_ids = self.llm.predict_knowledge(embedding)
+            # instance_embedding = self.llm.decoder_model.model.embed_tokens(instance)
+            # sampled_ids = self.llm.predict_knowledge(embedding, instance_embedding)
         #text = [self.llm.tokenizer.decode(k) for k in sampled_ids.tolist()[0]]
         text = self.llm.tokenizer.decode(sampled_ids.tolist()[0], skip_special_tokens=True)
         
@@ -187,6 +191,9 @@ class Nesy(nn.Module):
             instance_ids = self.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.decoder_device)
         else:
             instance_ids = None
+            # instance = (x_batch, y_batch)
+            # instance_text = [f"This task is to:" for x, y in zip(*instance)]
+            # instance_ids = self.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.decoder_device)
         recon_loss = self.compute_recon_loss(sampled_latent, knowledge_ids, instance_ids)
 
         if self.args.nf:

@@ -2,7 +2,7 @@ import os
 import matplotlib.pyplot as plt
 
 nesy_exp_dir = "../exp_induction"
-sft_exp_dir = "../exp_induction_new"
+sft_exp_dir = "../exp_induction_sft"
 selected_epoch = 10
 
 nesy_observed_samples = []
@@ -77,13 +77,13 @@ if len(nesy_observed_samples) > 0:
     nesy_observed_samples, nesy_seen_induction_accuracy, nesy_unseen_induction_accuracy \
     = zip(*sorted(zip(nesy_observed_samples, nesy_seen_induction_accuracy, nesy_unseen_induction_accuracy), key=lambda x: x[0]))
     nesy_induction_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(nesy_seen_induction_accuracy, nesy_unseen_induction_accuracy)]
-    plt.plot(nesy_observed_samples, nesy_induction_accuracy, label="nesy", color='#2ecc71', marker='o')
+    plt.plot(nesy_observed_samples, nesy_induction_accuracy, label="NesyVaiBot", color='#2ecc71', marker='o')
 
 if len(sft_observed_samples) > 0:
     sft_observed_samples, sft_seen_induction_accuracy, sft_unseen_induction_accuracy \
     = zip(*sorted(zip(sft_observed_samples, sft_seen_induction_accuracy, sft_unseen_induction_accuracy), key=lambda x: x[0]))
     sft_induction_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(sft_seen_induction_accuracy, sft_unseen_induction_accuracy)]
-    plt.plot(sft_observed_samples, sft_induction_accuracy, label="sft", color='#3498db', marker='o')
+    plt.plot(sft_observed_samples, sft_induction_accuracy, label="SFT", color='#3498db', marker='o')
 
 #横轴标签：pretrain ratio
 plt.xlabel("observed samples")

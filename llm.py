@@ -228,6 +228,8 @@ class WrappedLLM(nn.Module):
 
         if self.args.use_instance_in_decoder:
             soft_token_embedding = torch.cat((soft_token_embedding, instance_embedding), dim=1)
+        # else:
+        #     soft_token_embedding = torch.cat((soft_token_embedding, instance_embedding), dim=1)
 
         total_embeds = torch.cat((soft_token_embedding, inputs_embeds), dim=1)
         pad_tokens = torch.full_like(soft_token_embedding[:, :, 0], self.tokenizer.pad_token_id, dtype=torch.int)
@@ -327,7 +329,7 @@ class WrappedLLM(nn.Module):
                 total_attention = attention_mask
 
             if sample:
-                response = self.task_model.generate(inputs_embeds=total_embeds,
+                response = self.task_model.generate(inputs=x_id,
                                         attention_mask=total_attention,
                                         max_new_tokens=self.args.max_token, 
                                         early_stopping=True,
@@ -336,10 +338,21 @@ class WrappedLLM(nn.Module):
                                         temperature=1.0,
                                         do_sample=True,
                                         # stopping_criteria=stopping_criteria
-                                        )
+                                        )[:, x_id.shape[1]:]
         
             else:
-                response = self.task_model.generate(inputs_embeds=total_embeds,
+                if self.args.method == "icl":
+                    response = self.task_model.generate(inputs=x_id,
+                                        max_new_tokens=self.args.max_token, 
+                                        early_stopping=True,
+                                        eos_token_id=self.tokenizer.eos_token_id,
+                                        pad_token_id=self.tokenizer.pad_token_id,
+                                        #temperature=0.0,
+                                        #do_sample=False,
+                                        # stopping_criteria=stopping_criteria
+                                        )[:, x_id.shape[1]:]
+                else:
+                    response = self.task_model.generate(inputs_embeds=total_embeds,
                                         attention_mask=total_attention,
                                         max_new_tokens=self.args.max_token, 
                                         early_stopping=True,
