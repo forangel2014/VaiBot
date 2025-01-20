@@ -554,40 +554,44 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
         
         knowledge_itd = []
         instance_itd = []
+        itd_task_ids = []
         
         for task_id in tqdm(seen_tasks_ids):
 
             seen_subtask_data = [data for data in seen_train_data if data["sub_task_id"] == task_id]
             knowledge = seen_subtask_data[0]["knowledge"]
-            # knowledge_itd.append(knowledge)
+            knowledge_itd.append(knowledge)
 
             # with torch.no_grad():
                 
             #     obeserved_samples = random.sample(seen_subtask_data, 5)
             #     obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
 
-            #     # input_message = [{"role": "system", "content": "Given the following input and output pairs, please directly output their shared instruction."}, 
-            #     #                  {"role": "user", \
-            #     #                   "content": "Input: 你好，世界。Output: Hello, world.\n \
-            #     #                               Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
-            #     #                               Input: 我还不是很明白。Output: I'm still not very clear.\n \
-            #     #                               Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
-            #     #                               Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
-            #     #                  {"role": "assistant", "content": "Translate the input text into English."},
-            #     #                  {"role": "user", "content": obeserved_text}]
+            #     input_message = [{"role": "system", "content": "Given the following input and output pairs, please directly output their shared instruction."}, 
+            #                      {"role": "user", \
+            #                       "content": "Input: 你好，世界。Output: Hello, world.\n \
+            #                                   Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
+            #                                   Input: 我还不是很明白。Output: I'm still not very clear.\n \
+            #                                   Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
+            #                                   Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+            #                      {"role": "assistant", "content": "Translate the input text into English."},
+            #                      {"role": "user", "content": obeserved_text}]
             #     # input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
-            #     input_text = fore_prompt + obeserved_text + post_prompt
-            #     input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
+            #     #input_text = fore_prompt + obeserved_text + post_prompt
+            #     #input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
             #     for _ in range(5):
-            #         predicted_knowledge = nesy.llm.predict_task(input_ids, sample=True)[0]
-            #         predicted_knowledge = post_process_for_prompting(predicted_knowledge)
-            #         #knowledge_itd.append(predicted_knowledge)
+            #         #predicted_knowledge = nesy.llm.predict_task(input_ids, sample=True)[0]
+            #         #predicted_knowledge = post_process_for_prompting(predicted_knowledge)
+            #         predicted_knowledge = openai.chat.completions.create(model="gpt-4o-mini", 
+            #                                                        messages=input_message, temperature=0.5).choices[0].message.content
+            #         knowledge_itd.append(predicted_knowledge)
         # sample from p(x, y|f)
 
-        # for task_id_itd, knowledge in tqdm(enumerate(knowledge_itd)):
+        for task_id_itd, knowledge in tqdm(enumerate(knowledge_itd)):
 
-        #     task_id_itd += len(seen_tasks_ids)
+            task_id_itd += seen_tasks_ids[-1]
+            itd_task_ids.append(task_id_itd)
 
             with torch.no_grad():
 
@@ -653,7 +657,7 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                                         "input": f"<input>{input_}</input>",
                                         "target": f"<output>{output_}</output>",
                                         "knowledge": knowledge,
-                                        "sub_task_id": task_id+seen_tasks_ids[-1]#_itd
+                                        "sub_task_id": task_id_itd
                                         })
                         except:
                             continue
@@ -662,6 +666,7 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
 
         seen_train_data = seen_train_data_loader.dataset
         if method == "itd":
+            seen_tasks_ids.extend(itd_task_ids)
             seen_train_data.extend(instance_itd)
         seen_test_data = seen_test_data_loader.dataset
         seen_tasks_ids = list(set([sample["sub_task_id"] for sample in seen_train_data]))
