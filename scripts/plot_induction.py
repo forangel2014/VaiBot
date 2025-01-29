@@ -78,12 +78,16 @@ if len(nesy_observed_samples) > 0:
     = zip(*sorted(zip(nesy_observed_samples, nesy_seen_induction_accuracy, nesy_unseen_induction_accuracy), key=lambda x: x[0]))
     nesy_induction_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(nesy_seen_induction_accuracy, nesy_unseen_induction_accuracy)]
     plt.plot(nesy_observed_samples, nesy_induction_accuracy, label="NesyVaiBot", color='#2ecc71', marker='o')
+    # plt.plot(nesy_observed_samples, nesy_seen_induction_accuracy, label="NesyVaiBot-seen", color='#2ecc71', marker='o', linestyle='-')
+    # plt.plot(nesy_observed_samples, nesy_unseen_induction_accuracy, label="NesyVaiBot-unseen", color='#2ecc71', marker='o', linestyle='--')
 
 if len(sft_observed_samples) > 0:
     sft_observed_samples, sft_seen_induction_accuracy, sft_unseen_induction_accuracy \
     = zip(*sorted(zip(sft_observed_samples, sft_seen_induction_accuracy, sft_unseen_induction_accuracy), key=lambda x: x[0]))
     sft_induction_accuracy = [0.9 * seen + 0.1 * unseen for seen, unseen in zip(sft_seen_induction_accuracy, sft_unseen_induction_accuracy)]
     plt.plot(sft_observed_samples, sft_induction_accuracy, label="SFT", color='#3498db', marker='o')
+    # plt.plot(sft_observed_samples, sft_seen_induction_accuracy, label="SFT-seen", color='#3498db', marker='o', linestyle='-')
+    # plt.plot(sft_observed_samples, sft_unseen_induction_accuracy, label="SFT-unseen", color='#3498db', marker='o', linestyle='--')
 
 #横轴标签：pretrain ratio
 plt.xlabel("observed samples")

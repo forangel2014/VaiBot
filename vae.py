@@ -42,7 +42,7 @@ class Nesy(nn.Module):
                     INN.Nonlinear(self.latent_size, method="RealNVP"),
                 ).to(self.args.flow_device)
 
-        elif args.method in ["tagi_train_hypernet", "nesy_visualize"]:
+        elif args.method in ["tagi_train_hypernet", "nesy_visualize", "tagi"]:
 
             self.encoder_mlp = nn.Sequential(
                 nn.Linear(self.hidden_size, self.hidden_size),

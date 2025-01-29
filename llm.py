@@ -117,7 +117,7 @@ class WrappedLLM(nn.Module):
             
             self.param_info = self.specify_parameter(n=args.latent_size)
 
-        elif args.method in ["tagi_train_hypernet", "nesy_visualize"]:
+        elif args.method in ["tagi_train_hypernet", "nesy_visualize", "tagi"]:
             self.encoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
                                                 device_map=args.encoder_device,#"auto",
                                                 torch_dtype=self.dtype, 

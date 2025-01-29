@@ -78,6 +78,13 @@ def post_process_for_prompting(predicted_knowledge):
         predicted_knowledge = predicted_knowledge[2:]
     return predicted_knowledge
 
+def post_process_for_y(y_pred):
+    if not y_pred.startswith("<output>"):
+        y_pred = "<output>" + y_pred
+    if not y_pred.endswith("</output>"):
+        y_pred = y_pred + "</output>"
+    return y_pred
+
 def plot_loss_curve(loss_dict, name):
     # 创建一个新的图形
     plt.figure()

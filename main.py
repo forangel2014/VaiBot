@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from datetime import datetime
 from utils import (mkdir, setup_seed, convert_seconds, load_task_data, plot_loss_curve, tsne, my_chat_template, 
-                   create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf, post_process_for_prompting)
+                   create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf, post_process_for_prompting, post_process_for_y)
 from tqdm import tqdm
 from sklearn.manifold import TSNE
 import plotly.express as px
@@ -154,7 +154,7 @@ def tagi_pretrain_subtask(args, train_data, nesy, prompt_template, log):
     
     for task_id in tqdm(all_tasks_ids):
 
-        if task_id in os.listdir(f"{args.exp_dir}/tagi_pretrain/"):
+        if str(task_id) in os.listdir(f"{args.exp_dir}/tagi_pretrain/"):
             continue
         
         log.writelines(f"training subtask {task_id}\n")
@@ -197,7 +197,7 @@ def tagi_train_hypernet(args, train_data, nesy, prompt_template, log):
 
     #对于所有task_id，读取args.load_exp/tagi_pretrain/{task_id}/optimal_params.pth
     optimal_params = {}
-    all_tasks_ids = ["1", "2"]#os.listdir(f"{args.load_exp}/tagi_pretrain")
+    all_tasks_ids = os.listdir(f"{args.load_exp}/tagi_pretrain")
     for task_id in tqdm(all_tasks_ids):
         params = torch.load(f"{args.load_exp}/tagi_pretrain/{task_id}/optimal_params.pth")[0].to(nesy.args.task_device)
         optimal_params[int(task_id)] = params
@@ -213,7 +213,7 @@ def tagi_train_hypernet(args, train_data, nesy, prompt_template, log):
             x_batch = batch["input"]
             x_batch = [prompt_template.format(x) for x in x_batch]
             y_batch = batch["target"]
-            task_ids = [args.knowledge2task_id[knowledge] for knowledge in knowledge_batch]
+            task_ids = batch["sub_task_id"].tolist()#[args.knowledge2task_id[knowledge] for knowledge in knowledge_batch]
             target_params = [optimal_params[task_id] for task_id in task_ids]
             target_params = torch.cat(target_params, dim=0).to(nesy.args.task_device)
             
@@ -1229,6 +1229,36 @@ def icl_inference(args, train_data_loader, test_data_loader, nesy, prompt_templa
         subtask_test_data_loader = DataLoader(subtask_test_data, batch_size=args.batch_size, shuffle=True)
         knowledge = subtask_valid_data[0]["knowledge"]
 
+        if args.method == "instruction_induction":
+            fore_prompt = "I gave a friend an instruction and an input. The friend read the instruction and wrote an output for the input.\nHere is the input-output pair:\n"
+            post_prompt = "\nThe instruction was: "
+
+            with torch.no_grad():
+                
+                obeserved_samples = random.sample(subtask_train_data, 5)
+                obeserved_text = "\n".join([f"Input: {data['input']}. Output: {data['target']}." for data in obeserved_samples])
+
+                input_message = [{"role": "system", "content": "Given the following input and output pairs, please directly output their shared instruction."}, 
+                                 {"role": "user", \
+                                  "content": "Input: 你好，世界。Output: Hello, world.\n \
+                                              Input: 可以介绍一下什么是机器学习吗。Output: Can you explain what machine learning is?\n \
+                                              Input: 我还不是很明白。Output: I'm still not very clear.\n \
+                                              Input: 我需要一个翻译工具。Output: I need a translation tool.\n \
+                                              Input: 你只需要一个大语言模型。Output: A large language model is all you need.\n"},
+                                 {"role": "assistant", "content": "Translate the input text into English."},
+                                 {"role": "user", "content": obeserved_text}]
+                # input_text = nesy.llm.tokenizer.apply_chat_template(input_message, tokenize=False)
+                # input_text = fore_prompt + obeserved_text + post_prompt
+                # input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
+
+                #for _ in range(5):
+                #predicted_knowledge = nesy.llm.predict_task(input_ids, sample=True)[0]
+                #predicted_knowledge = post_process_for_prompting(predicted_knowledge)
+                predicted_knowledge = openai.chat.completions.create(model="gpt-4o-mini", 
+                                                               messages=input_message, temperature=0.5).choices[0].message.content
+
+                print(predicted_knowledge)
+
         for batch in subtask_test_data_loader:
             
             with torch.no_grad():
@@ -1239,7 +1269,10 @@ def icl_inference(args, train_data_loader, test_data_loader, nesy, prompt_templa
 
                 obeserved_samples = random.sample(subtask_train_data, args.test_sample_num)
 
-                input_message = []
+                if args.method == "instruction_induction":
+                    input_message = [{"role": "system", "content": predicted_knowledge}]
+                else:
+                    input_message = []
                 for obeserved_sample in obeserved_samples:
                     input_message.append({"role": "user", "content": obeserved_sample["input"]})
                     input_message.append({"role": "assistant", "content": obeserved_sample["target"]})
@@ -1250,6 +1283,8 @@ def icl_inference(args, train_data_loader, test_data_loader, nesy, prompt_templa
                 #input_text = [input_message + "\n" + x for x in x_batch]
                 input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt", padding="longest").input_ids.to(nesy.args.task_device)
                 y_pred = nesy.llm.predict_task(input_ids)
+                #y_pred = [post_process_for_prompting(y) for y in y_pred]
+                y_pred = [post_process_for_y(y) for y in y_pred]
                 results = [
                     {
                         "knowledge": knowledge,
@@ -1564,8 +1599,8 @@ def main(args):
         refinement_inference(args, seen_train_data_loader, seen_test_data_loader, nesy, prompt_template, neural_evaluater, log, name="seen task")
         refinement_inference(args, unseen_train_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, log, name="unseen task")
 
-    elif args.method == "icl":
-        icl_log = open(f"{args.exp_dir}/icl.log", "w")
+    elif args.method in ["icl", "instruction_induction"]:
+        icl_log = open(f"{args.exp_dir}/{args.method}.log", "w")
         icl_inference(args, seen_train_data_loader, seen_test_data_loader, nesy, prompt_template, neural_evaluater, icl_log, name="seen task")
         icl_inference(args, unseen_train_data_loader, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, icl_log, name="unseen task")
 
@@ -1601,7 +1636,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
-    parser.add_argument('--method', type=str, default="itd", help='the method to train the model.')
+    parser.add_argument('--method', type=str, default="tagi_pretrain", help='the method to train the model.')
     parser.add_argument('--prior', type=str, default="gaussian", help='the prior distribution of the model.')
     parser.add_argument('--nf', action="store_true", default=False, help='Whether to use the flow model.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
@@ -1642,8 +1677,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
     parser.add_argument('--num_soft_token', type=int, default=10, help='max number of tokens to generate.')
     
-    parser.add_argument('--load_exp', type=str, default="../exp_final/vae-domain", help='name of dataset.')
-    #parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
+    #parser.add_argument('--load_exp', type=str, default="../exp_baseline/tagi", help='name of dataset.')
+    parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
     parser.add_argument('--load_epoch', type=int, default=10, help='the epoch of the pretrained model.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether to ignore the existing model.')
     parser.add_argument('--results_name', type=str, default=None, help='the name of the experiment.')
