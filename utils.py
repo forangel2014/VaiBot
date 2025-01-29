@@ -14,11 +14,7 @@ import matplotlib.pyplot as plt
 import string
 from src.rouge import rouge_scorer
 
-# openai.api_key = "sk-GX5fQitXHKizUe4iF8Ed3375A72847A8807c9dAb0290C1Bc"
-#         # openai.base_url = url
-# openai.base_url = 'https://chatapi.onechats.top/v1/'
-openai.api_key = "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"
-
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def mkdir(path):
     if not os.path.exists(path):
