@@ -241,22 +241,14 @@ def test_symbolic2neural(args, epoch, data_loader, nesy, prompt_template, evalua
     start_time = time.time()
     num_correct = 0
     num_test = 0
-    num_batches = 0  # 初始化一个计数器
 
     for batch in data_loader:
-        
-        # if num_batches >= 5:  # 如果已经处理了10个batch，跳出循环
-        #     break
         
         with torch.no_grad():
             knowledge_batch = batch["knowledge"]
             x_batch = batch["input"]
             x_batch = [prompt_template.format(x) for x in x_batch]
             y_batch = batch["target"]
-            
-            # add knowledge to the input
-            # if args.use_knowledge_in_task.lower() in ["hard", "soft"]:
-            #     x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
             
             results = nesy.eval_task(knowledge_batch, x_batch, y_batch, evaluater)
             for result in results:
@@ -265,9 +257,7 @@ def test_symbolic2neural(args, epoch, data_loader, nesy, prompt_template, evalua
                 num_test += 1
                 log.flush()
                 
-        #num_batches += 1
-        #break
-        
+
     accuracy = num_correct / num_test
     log.writelines(f"symbolic2neural accuracy on {name} samples: {accuracy} \n")
     end_time = time.time()
@@ -1416,7 +1406,7 @@ def main(args):
             if key not in ["exp_dir", "load_exp", "load_epoch", "encoder_device", "decoder_device", "task_device", 
                            "flow_device", "noise_device", "task_finetune_step", "task_finetune_lr", "batch_size",
                            "zero_init", "dataset", "pretraining", "valid_epoch", "save_epoch", "task_model_name_or_path",
-                           "method", "use_knowledge_in_task", "test_sample_num", "dataset"]:
+                           "method", "test_sample_num", "dataset"]:
                 args.__dict__[key] = loaded_args[key]
         args.load_nesy_ckpt = f"{args.load_exp}/epoch{args.load_epoch}/nesy_ckpt/"
         start_epoch = args.load_epoch
@@ -1631,12 +1621,12 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default="sni", help='name of dataset.')
+    parser.add_argument('--dataset', type=str, default="list_functions", help='name of dataset.')
     parser.add_argument('--meta_exp_dir', type=str, default="./exp", help='the directory to save all the experiment results.')
     parser.add_argument('--exp_name', type=str, default="debug", help='the name of the experiment.')
     parser.add_argument('--pretraining', action="store_true", default=False, help='Whether to pretrain the model.')
 
-    parser.add_argument('--method', type=str, default="tagi_pretrain", help='the method to train the model.')
+    parser.add_argument('--method', type=str, default="nesy", help='the method to train the model.')
     parser.add_argument('--prior', type=str, default="gaussian", help='the prior distribution of the model.')
     parser.add_argument('--nf', action="store_true", default=False, help='Whether to use the flow model.')
     # parser.add_argument('--fuse_method', type=str, default="delta", help='name of dataset.')
@@ -1661,7 +1651,7 @@ if __name__ == '__main__':
     parser.add_argument('--episilon', type=float, default=1e-5, help='the episilon parameter in the energy-based model.')
     parser.add_argument('--num_epochs', type=int, default=100, help='the number of epochs to train the model.')
     parser.add_argument('--valid_epoch', type=int, default=1, help='the number of epochs to validate the model.')
-    parser.add_argument('--save_epoch', type=int, default=1, help='the number of epochs to save the model.')
+    parser.add_argument('--save_epoch', type=int, default=10, help='the number of epochs to save the model.')
 
     parser.add_argument('--task_finetune_step', type=int, default=100, help='the number of steps to finetune the task model.')
     parser.add_argument('--task_finetune_lr', type=float, default=1e-2, help='the learning rate to finetune the task model.')
@@ -1677,13 +1667,13 @@ if __name__ == '__main__':
     parser.add_argument('--max_token', type=int, default=50, help='max number of tokens to generate.')
     parser.add_argument('--num_soft_token', type=int, default=10, help='max number of tokens to generate.')
     
-    #parser.add_argument('--load_exp', type=str, default="../exp_baseline/tagi", help='name of dataset.')
+    #parser.add_argument('--load_exp', type=str, default="../exp_final/vae-domain-ls", help='name of dataset.')
     parser.add_argument('--load_exp', type=str, default=None, help='the path of the pretrained model.')
-    parser.add_argument('--load_epoch', type=int, default=10, help='the epoch of the pretrained model.')
+    parser.add_argument('--load_epoch', type=int, default=1, help='the epoch of the pretrained model.')
     parser.add_argument('--ignore_exist', action="store_true", default=False, help='whether to ignore the existing model.')
     parser.add_argument('--results_name', type=str, default=None, help='the name of the experiment.')
-    #parser.add_argument('--model_name_or_path', type=str, default="/netcache/huggingface/llama-2-7b-chat-hf", help='Tasks for instructions generation')
-    parser.add_argument('--model_name_or_path', type=str, default="/mnt/workspace/user/chenhao/pretrained_models/Llama-2-7b-chat-hf", help='the path of the pretrained model.')
+    parser.add_argument('--model_name_or_path', type=str, default="../llama-3-8b-instruct/LLM-Research/Meta-Llama-3.1-8B-Instruct", help='Tasks for instructions generation')
+    #parser.add_argument('--model_name_or_path', type=str, default="/cpfs/user/chenhao/pretrained_models/Qwen/Qwen2.5-7B", help='the path of the pretrained model.')
     parser.add_argument('--task_model_name_or_path', type=str, default=None, help='the path of the pretrained model.')
     parser.add_argument('--finetuned_model', type=str, default=None, help='the path of the finetuned model.')
     
