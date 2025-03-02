@@ -104,6 +104,18 @@ def dyck_languages_gen(num_records=1000):
     return data_list
 
 def load_data(load_from_local=False, save=True):
+    '''
+    return:
+        dict: 一个字典，键为数据集的路径或名称，值为该数据集的样本列表。
+              每个样本是一个字典，包含以下三个字段：
+                - "knowledge"
+                - "input"
+                - "target"
+
+        dict_keys(['corypaik/prost', 'NEWTONReasoning/NEWTON', 'allenai/openbookqa', 'allenai/qasc', 'e-CARE',
+                    'derek-thomas/ScienceQA...actNLI', 'date_understanding', 'dyck_languages',
+                    'maveriq/bigbenchhard/geometric_shapes', 'maveriq/bigbenchhard/word_sorting'])
+    '''
     mkdir(f"./data/ood_data")
     all_samples = {}
 
@@ -112,7 +124,7 @@ def load_data(load_from_local=False, save=True):
     if load_from_local:
         dataset_samples = json.load(open(f"./data/ood_data/corypaik-prost.json"))
     else:
-        dataset = datasets.load_dataset(path,split='explicit_questions')
+        dataset = datasets.load_dataset(path)
         dataset_samples = []
     #This dataset only has test split
         for sample in tqdm(list(dataset["test"])):
@@ -166,6 +178,26 @@ def load_data(load_from_local=False, save=True):
     all_samples[path]=dataset_samples
     if save:
         json.dump(dataset_samples, open(f"./data/ood_data/allenai-openbookqa.json", "w"))
+
+    print("loading: allenai-qasc")
+    path = "allenai/qasc"
+    if load_from_local:
+        dataset_samples = json.load(open(f"./data/ood_data/allenai-qasc.json"))
+    else:
+        dataset = datasets.load_dataset(path,)
+        dataset_samples = []
+        for sample in tqdm(list(dataset["train"])):
+            my_sample = {
+                "knowledge": sample['combinedfact'],
+                "input": sample['fact1'],
+                "target": sample['fact2'],
+            }
+            dataset_samples.append(my_sample)
+    print(f"有效样本数量 (allenai-qasc): {len(dataset_samples)}")
+    all_samples[path]=dataset_samples
+    if save:
+        json.dump(dataset_samples, open(f"./data/ood_data/allenai-qasc.json", "w"))
+
 
     print("loading: e-CARE")
     path = "e-CARE"
@@ -293,6 +325,25 @@ def load_data(load_from_local=False, save=True):
     if save:
         json.dump(dataset_samples, open(f"./data/ood_data/allenai-multi_lexsum.json", "w"))
 
+    print("loading: glnmario-ECHR")
+    path = "glnmario/ECHR"
+    if load_from_local:
+        dataset_samples = json.load(open(f"./data/ood_data/glnmario-ECHR.json"))
+    else:
+        dataset = datasets.load_dataset(path)
+        dataset_samples = []
+        for sample in tqdm(list(dataset['train'])):
+            my_sample = {
+                "knowledge": 'Given the facts of a case brought to the Court, generate a short summary of the case conclusion to determine the judgment.',
+                "input": sample['text'],
+                "target": sample['conclusion']
+            }
+            dataset_samples.append(my_sample)
+    print(f"有效样本数量 (glnmario-ECHR): {len(dataset_samples)}")
+    all_samples[path]=dataset_samples
+    if save:
+        json.dump(dataset_samples, open(f"./data/ood_data/glnmario-ECHR.json", "w"))
+
     print("loading: ContractNLI")
     path = "ContractNLI"
     if load_from_local:
@@ -352,7 +403,7 @@ def load_data(load_from_local=False, save=True):
             }
             dataset_samples.append(my_sample)
     print(f"有效样本数量 (geometric_shapes): {len(dataset_samples)}")
-    all_samples[path]=dataset_samples
+    all_samples[f"{path}/geometric_shapes"]=dataset_samples
     if save:
         json.dump(dataset_samples, open(f"./data/ood_data/geometric_shapes.json", "w"))
 
@@ -371,10 +422,10 @@ def load_data(load_from_local=False, save=True):
             }
             dataset_samples.append(my_sample)
     print(f"有效样本数量 (word_sorting): {len(dataset_samples)}")
-    all_samples[path]=dataset_samples
+    all_samples[f"{path}/word_sorting"]=dataset_samples
     if save:
         json.dump(dataset_samples, open(f"./data/ood_data/word_sorting.json", "w"))
 
-
+    return all_samples
 if __name__ == '__main__':
-    load_data()
+    all_samples=load_data()
