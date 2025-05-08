@@ -14,3 +14,5 @@ sni/
 idea.md
 data/pretrain/
 data/p3
+results.md
+vaeflow.py
