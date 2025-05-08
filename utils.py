@@ -157,6 +157,91 @@ def create_task_data_lookup(data):
 
     return knowledge, lookup
 
+def normalize_answer(s):
+    """Lower text and remove punctuation, and extra whitespace."""
+
+    def remove_html(text):
+        return re.sub(r'<[^>]*>', '', text)
+
+    def white_space_fix(text):
+        return ' '.join(text.split())
+
+    def remove_punc(text):
+        exclude = set(string.punctuation)
+        return ''.join(ch for ch in text if ch not in exclude)
+
+    def lower(text):
+        return text.lower()
+
+    return white_space_fix(remove_punc(lower(remove_html(s))))
+
+def match_p3(rule, input_):
+    # 搜索rule中所有{{}}的模式
+    pattern = r'{{.*?}}'
+    matches = re.findall(pattern, rule)
+    # 对于rule，将{{}}中的内容去掉
+    idxs = [rule.find(match) for match in matches]
+    rule_pieces = []
+    for i in range(len(idxs)):
+        if i == 0:
+            rule_pieces.append(rule[:idxs[i]])
+        else:
+            rule_pieces.append(rule[idxs[i-1]+len(matches[i-1]):idxs[i]])
+    rule_pieces.append(rule[idxs[-1]+len(matches[-1]):])
+    # 丢弃少于两个单词的rule_pieces
+    rule_pieces = [piece for piece in rule_pieces if len(piece.split()) > 1]
+    rule = "".join(rule_pieces)
+    for rule_piece in rule_pieces:
+        input_ = input_.replace(rule_piece, "")
+    return rule, input_
+
+def exact_match_score(prediction, ground_truth, xlingual=False):
+    return (normalize_answer(prediction) == normalize_answer(ground_truth))
+
+def rouge1_score(prediction, ground_truth, xlingual=False):
+    if xlingual:
+        scorer = rouge_scorer.RougeScorer(['rouge1'], tokenizer=xlingual_tokenizer)
+    else:
+        scorer = rouge_scorer.RougeScorer(['rouge1'], use_stemmer=True)
+    scores = scorer.score(prediction=prediction, target=ground_truth)
+    return scores["rouge1"].fmeasure
+
+def rougeL_score(prediction, ground_truth, xlingual=False):
+    if xlingual:
+        scorer = rouge_scorer.RougeScorer(['rougeL'], tokenizer=xlingual_tokenizer) 
+    else:
+        scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
+    scores = scorer.score(prediction=prediction, target=ground_truth)
+    return scores["rougeL"].fmeasure
+
+def metric_max_over_ground_truths(metric_fn, prediction, ground_truths, xlingual=False):
+    scores_for_ground_truths = []
+    for ground_truth in ground_truths:
+        score = metric_fn(prediction, ground_truth, xlingual=xlingual)
+        scores_for_ground_truths.append(score)
+    return max(scores_for_ground_truths)
+
+def compute_metrics(predictions, references, xlingual=False):
+    assert len(predictions) == len(references), f"# of predictions {len(predictions)} doesn't match # of references {len(references)}."
+    exact_match, rouge1, rougeL = 0, 0, 0
+    for pred, gold in zip(predictions, references):
+        assert isinstance(gold, list)
+        exact_match += metric_max_over_ground_truths(
+            exact_match_score, prediction=pred, ground_truths=gold, xlingual=xlingual
+        )
+        rouge1 += metric_max_over_ground_truths(
+            rouge1_score, prediction=pred, ground_truths=gold, xlingual=xlingual
+        )
+        rougeL += metric_max_over_ground_truths(
+            rougeL_score, prediction=pred, ground_truths=gold, xlingual=xlingual
+        )
+    exact_match = 100.0 * exact_match / len(references)
+    rouge1 = 100.0 * rouge1 / len(references)
+    rougeL = 100.0 * rougeL / len(references)
+    metrics = {"exact_match": exact_match, "rouge1": rouge1, "rougeL": rougeL}
+    metrics = {k: round(v, 4) for k, v in metrics.items()}
+    return metrics
+
 def load_task_data(task, unseen_task_ratio=None, unseen_task_num=None, test_sample_ratio=None, test_sample_num=None,
                    num_words=32, num_pertask=1000, task_fields=None):
     
@@ -959,6 +1044,7 @@ def load_pretrain_data_hf(pretrain_data_ratio, valid_ratio=0.1, valid_num=None, 
     if save:
         json.dump(dataset_samples, open("./data/pretrain/manythings-translations-alpaca.json", "w"))
 
+    print("loading: MBZUAI/LaMini-instruction")
     path = "MBZUAI/LaMini-instruction"
     if load_from_local:
         dataset_samples = json.load(open("./data/pretrain/LaMini-instruction.json"))
@@ -1309,91 +1395,3 @@ def load_pretrain_data_hf(pretrain_data_ratio, valid_ratio=0.1, valid_num=None, 
     train_dataset = all_samples[:-valid_num]
     valid_dataset = all_samples[-valid_num:]
     return train_dataset, valid_dataset
-
-def normalize_answer(s):
-    """Lower text and remove punctuation, and extra whitespace."""
-
-    def remove_html(text):
-        return re.sub(r'<[^>]*>', '', text)
-
-    def white_space_fix(text):
-        return ' '.join(text.split())
-
-    def remove_punc(text):
-        exclude = set(string.punctuation)
-        return ''.join(ch for ch in text if ch not in exclude)
-
-    def lower(text):
-        return text.lower()
-
-    return white_space_fix(remove_punc(lower(remove_html(s))))
-
-def match_p3(rule, input_):
-    # 搜索rule中所有{{}}的模式
-    pattern = r'{{.*?}}'
-    matches = re.findall(pattern, rule)
-    # 对于rule，将{{}}中的内容去掉
-    idxs = [rule.find(match) for match in matches]
-    rule_pieces = []
-    for i in range(len(idxs)):
-        if i == 0:
-            rule_pieces.append(rule[:idxs[i]])
-        else:
-            rule_pieces.append(rule[idxs[i-1]+len(matches[i-1]):idxs[i]])
-    rule_pieces.append(rule[idxs[-1]+len(matches[-1]):])
-    # 丢弃少于两个单词的rule_pieces
-    rule_pieces = [piece for piece in rule_pieces if len(piece.split()) > 1]
-    rule = "".join(rule_pieces)
-    for rule_piece in rule_pieces:
-        input_ = input_.replace(rule_piece, "")
-    return rule, input_
-
-def exact_match_score(prediction, ground_truth, xlingual=False):
-    return (normalize_answer(prediction) == normalize_answer(ground_truth))
-
-def rouge1_score(prediction, ground_truth, xlingual=False):
-    if xlingual:
-        scorer = rouge_scorer.RougeScorer(['rouge1'], tokenizer=xlingual_tokenizer)
-    else:
-        scorer = rouge_scorer.RougeScorer(['rouge1'], use_stemmer=True)
-    scores = scorer.score(prediction=prediction, target=ground_truth)
-    return scores["rouge1"].fmeasure
-
-def rougeL_score(prediction, ground_truth, xlingual=False):
-    if xlingual:
-        scorer = rouge_scorer.RougeScorer(['rougeL'], tokenizer=xlingual_tokenizer) 
-    else:
-        scorer = rouge_scorer.RougeScorer(['rougeL'], use_stemmer=True)
-    scores = scorer.score(prediction=prediction, target=ground_truth)
-    return scores["rougeL"].fmeasure
-
-def metric_max_over_ground_truths(metric_fn, prediction, ground_truths, xlingual=False):
-    scores_for_ground_truths = []
-    for ground_truth in ground_truths:
-        score = metric_fn(prediction, ground_truth, xlingual=xlingual)
-        scores_for_ground_truths.append(score)
-    return max(scores_for_ground_truths)
-
-def compute_metrics(predictions, references, xlingual=False):
-    assert len(predictions) == len(references), f"# of predictions {len(predictions)} doesn't match # of references {len(references)}."
-    exact_match, rouge1, rougeL = 0, 0, 0
-    for pred, gold in zip(predictions, references):
-        assert isinstance(gold, list)
-        exact_match += metric_max_over_ground_truths(
-            exact_match_score, prediction=pred, ground_truths=gold, xlingual=xlingual
-        )
-        rouge1 += metric_max_over_ground_truths(
-            rouge1_score, prediction=pred, ground_truths=gold, xlingual=xlingual
-        )
-        rougeL += metric_max_over_ground_truths(
-            rougeL_score, prediction=pred, ground_truths=gold, xlingual=xlingual
-        )
-    exact_match = 100.0 * exact_match / len(references)
-    rouge1 = 100.0 * rouge1 / len(references)
-    rougeL = 100.0 * rougeL / len(references)
-    metrics = {"exact_match": exact_match, "rouge1": rouge1, "rougeL": rougeL}
-    metrics = {k: round(v, 4) for k, v in metrics.items()}
-    return metrics
-
-# load_task_data('p3', test_ratio=0.1, unseen_task_ratio=0.1, num_words=32, num_pertask=1000, task_fields=None)
-# load_task_data('p3')

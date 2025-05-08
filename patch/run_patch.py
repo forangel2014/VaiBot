@@ -2,7 +2,7 @@ import os
 import shutil
 import argparse
 
-def apply_patch(package_path, patch_filename):
+def apply_patch(package_path, patch_filename, version):
 
     link_path = os.path.join(package_path, patch_filename)
     backup_path = os.path.join(package_path, f'{patch_filename}.bak')
@@ -30,7 +30,7 @@ def apply_patch(package_path, patch_filename):
 
     # Get the current working directory and patch file path
     work_dir = os.path.abspath(os.getcwd())
-    patch_path = os.path.join(work_dir, patch_filename)
+    patch_path = os.path.join(work_dir, version, patch_filename)
 
     # Create the symlink
     try:
@@ -46,9 +46,11 @@ def apply_patch(package_path, patch_filename):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--package_path', type=str, default=None, help='Path of the input data.')
-    parser.add_argument('--patch_files', type=str, default=None, help='Path of the input data.')
+    parser.add_argument('--patch_filename', type=str, default=None, help='Path of the input data.')
+    parser.add_argument('--version', type=str, default=None, help='Path of the input data.')
 
     args = parser.parse_args()
-    
-    for patch_filename in args.patch_files.split(","):
-        apply_patch(args.package_path, patch_filename)
+
+    work_dir = os.path.abspath(os.getcwd())
+    if os.path.exists(os.path.join(work_dir, args.version, args.patch_filename)):
+        apply_patch(args.package_path, args.patch_filename, args.version)

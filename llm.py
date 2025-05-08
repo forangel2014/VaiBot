@@ -13,7 +13,7 @@ from peft import (  # noqa: E402
     get_peft_model,
 )
 from peft import AutoPeftModelForCausalLM
-from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer
+from transformers import AutoConfig, AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer, LlamaTokenizerFast
 from utils import mkdir
 
 class WrappedLLM(nn.Module):
@@ -54,13 +54,33 @@ class WrappedLLM(nn.Module):
                 params.requires_grad = False
 
         if "llama" in args.model_name_or_path.lower():
-            self.tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
-            #self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
+            #self.tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='left', add_bos_token=False, add_eos_token=True)
+            self.tokenizer = LlamaTokenizerFast.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='left', add_bos_token=False, add_eos_token=True)
+            #self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='left', add_bos_token=False, add_eos_token=True)
+            self.tokenizer.pad_token_id = 0
+        elif "qwen" in args.model_name_or_path.lower():
+            base_tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='left', add_bos_token=False, add_eos_token=True)
+            base_tokenizer.pad_token_id = 151656
+            class WrappedTokenizer:
+                def __init__(self, base_tokenizer):
+                    self.base_tokenizer = base_tokenizer
+                    for attr in dir(base_tokenizer):
+                        if not attr.startswith('__'):
+                            setattr(self, attr, getattr(base_tokenizer, attr))
+                            
+                def __call__(self, *args, **kwargs):
+                    args = list(args)
+                    if type(args[0]) == str:
+                        args[0] = args[0] + "<|endoftext|>"
+                    elif type(args[0]) == list:
+                        args[0] = [x + "<|endoftext|>" for x in args[0]]
+                    else:
+                        raise ValueError(f"Unsupported input type: {type(args[0])}")
+                    return self.base_tokenizer(*args, **kwargs)
+            self.tokenizer = WrappedTokenizer(base_tokenizer)
+            #self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='left', add_bos_token=False, add_eos_token=True)
         else:
-            self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='right', add_bos_token=False, add_eos_token=True)
-        
-        self.tokenizer.padding_side = "left"
-        self.tokenizer.pad_token_id = 0
+            self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='left', add_bos_token=False, add_eos_token=True)
 
         if args.method in ["nesy", "nesy_iterative"]:
 
@@ -302,7 +322,7 @@ class WrappedLLM(nn.Module):
 
             decoded_tokens = response[0][x_id.shape[1]:]
             
-            text = self.tokenizer.decode(decoded_tokens, skip_special_tokens=True)
+            text = self.tokenizer.decode(decoded_tokens, skip_special_tokens=True).replace(self.tokenizer.pad_token, "")
 
         elif self.args.fuse_method == "p-tuning":
             
@@ -363,7 +383,7 @@ class WrappedLLM(nn.Module):
                                         # stopping_criteria=stopping_criteria
                                         )
             
-            text = [self.tokenizer.decode(response[i], skip_special_tokens=True) for i in range(batch_size)]
+            text = [self.tokenizer.decode(response[i], skip_special_tokens=True).replace(self.tokenizer.pad_token, "") for i in range(batch_size)]
         
         return text
 

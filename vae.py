@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from llm import WrappedLLM
 from utils import mkdir
-import INN
+#import INN
 
 class Nesy(nn.Module):
     
@@ -151,6 +151,10 @@ class Nesy(nn.Module):
             
         elif self.args.fuse_method == "p-tuning":
             
+            print("in compute_task_loss")
+            print(f"x_batch: {random.choice(x_batch)}")
+            print(f"y_batch: {random.choice(y_batch)}")
+
             x_id = self.llm.tokenizer(x_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
             y_id = self.llm.tokenizer(y_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
             
@@ -212,6 +216,27 @@ class Nesy(nn.Module):
             if self.args.use_chat_template:
                 x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
 
+        # new strategy
+        # if self.args.use_knowledge_in_task.lower() in ["hard", "soft"]:
+        #     if self.args.use_chat_template:
+        #         chat_batch = [self.llm.tokenizer.apply_chat_template([{"role": "system", "content": knowledge_batch[i]}, 
+        #                                                            {"role": "user", "content": x_batch[i]},
+        #                                                            {"role": "assistant", "content": y_batch[i]}],
+        #                                                            tokenize=False) for i in range(len(x_batch))]
+        #         if "llama" in self.args.model_name_or_path.lower():
+        #             pattern = "<|start_header_id|>assistant"
+        #         elif "qwen" in self.args.model_name_or_path.lower():
+        #             pattern = "<|im_start|>assistant\n"
+        #         else:
+        #             raise ValueError(f"Unsupported model: {self.args.model_name_or_path}")
+        #         x_batch = [chat.split(pattern)[0] for chat in chat_batch]
+        #         y_batch = [pattern + chat.split(pattern)[1] for chat in chat_batch]
+        #     else:
+        #         x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
+        # else:
+        #     if self.args.use_chat_template:
+        #         x_batch = [self.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+
         task_loss = self.compute_task_loss(params, x_batch, y_batch)
 
         #reg_loss = sampled_latent.norm(1, dim=1).mean() / self.args.latent_size
@@ -272,7 +297,11 @@ class Nesy(nn.Module):
                 params = self.flow_forward(self.reparameterize(mean, log_var).to(self.args.flow_device)).to(self.args.task_device)
             else:
                 params = self.reparameterize(mean, log_var).to(self.args.task_device)
-            
+
+            print("in eval_task")
+            print(f"x_batch: {random.choice(x_batch)}")
+            print(f"y_batch: {random.choice(y_batch)}")
+
             x_id = self.llm.tokenizer(x_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.task_device)
             y_pred = self.llm.predict_task(x_id, params)
             
