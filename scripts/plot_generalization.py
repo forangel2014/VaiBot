@@ -1,6 +1,10 @@
 import os
 import matplotlib.pyplot as plt
 
+plt.figure(facecolor='#f8f8f8')
+ax = plt.gca()
+ax.set_facecolor('#ebebf2')
+
 # 设置全局字体为Times New Roman
 plt.rcParams['font.family'] = 'serif'
 

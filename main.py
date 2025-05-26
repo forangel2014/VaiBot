@@ -17,7 +17,7 @@ import plotly.express as px
 import pandas as pd
 import openai
 
-setup_seed(73)
+setup_seed(78)
 
 def train_subtask(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template):
 
