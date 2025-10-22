@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from datetime import datetime
-from utils import (mkdir, setup_seed, convert_seconds, load_task_data, plot_loss_curve, tsne, my_chat_template, 
+from utils import (mkdir, setup_seed, convert_seconds, load_task_data, plot_loss_curve, tsne, my_chat_template, client,
                    create_task_data_lookup, get_gpu_memory_usage, load_pretrain_data_hf, post_process_for_prompting, post_process_for_y)
 from tqdm import tqdm
 from sklearn.manifold import TSNE
@@ -17,14 +17,14 @@ import plotly.express as px
 import pandas as pd
 import openai
 
-setup_seed(78)
+setup_seed(73)
 
 def train_subtask(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template):
 
     if args.zero_init:
-        params = torch.normal(mean=0, std=1e-2, size=(1, nesy.args.latent_size), requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16)
+        params = torch.normal(mean=0, std=1e-2, size=(1, nesy.args.latent_size), requires_grad=True, device=nesy.args.task_device, dtype=torch.float32)
     else:
-        params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16)
+        params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.float32)
     
     optimizer = torch.optim.Adam([params], lr=args.task_finetune_lr)
     keep_training = True
@@ -32,65 +32,37 @@ def train_subtask(args, nesy, subtask_train_data_loader, subtask_valid_data_load
     
     #return params, test_loss_ls
     
+    training_step = 0
     while keep_training:
 
-        for i, batch in tqdm(enumerate(subtask_train_data_loader)):
-
-            if i % 100 == 0:
-                test_loss = 0
-                with torch.no_grad():
-                    for batch in subtask_valid_data_loader:
-                        x_batch = batch["input"]
-                        x_batch = [prompt_template.format(x) for x in x_batch]
-                        y_batch = batch["target"]
-                        expanded_params = params.repeat_interleave(len(x_batch), dim=0)
-                        test_loss += nesy.compute_task_loss(expanded_params, x_batch, y_batch)
-
-                    test_loss /= len(subtask_valid_data_loader.dataset)
-                    test_loss_ls.append(test_loss.tolist())
-                    if len(test_loss_ls) > args.task_finetune_step:
-                        if test_loss_ls[-1] > test_loss_ls[-2]:
-                            keep_training = False
-                            break
+        for batch in subtask_train_data_loader:
 
             optimizer.zero_grad()
+            knowledge_batch = batch["knowledge"]
             x_batch = batch["input"]
             x_batch = [prompt_template.format(x) for x in x_batch]
             y_batch = batch["target"]
+
+            if args.use_knowledge_in_task.lower() in ["hard", "soft"]:
+                if args.use_chat_template:
+                    x_batch = [nesy.llm.tokenizer.apply_chat_template([{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+                else:
+                    x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
+            else:
+                if args.use_chat_template:
+                    x_batch = [nesy.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+
             expanded_params = params.repeat_interleave(len(x_batch), dim=0)
-            task_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch) * args.task_loss_weight + args.reg_loss_weight * params.norm(1, dim=1).mean() / args.latent_size
+            task_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch) #* args.task_loss_weight + args.reg_loss_weight * params.norm(1, dim=1).mean() / args.latent_size
             task_loss.backward()
             optimizer.step()
-    
-    return params, test_loss_ls
+            training_step += 1
 
-def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template):
-
-    #knowledge = "<instruction>Follow the instruction and answer the question: I do not know anything.</instruction>"
-    knowledge = "<instruction>Generate the output based on the given input.</instruction>"
-    if args.use_knowledge_in_task.lower() == "hard":
-        knowledge_id = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
-    else:
-        knowledge_id = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=False).input_ids.to(nesy.args.encoder_device)
-    input_embeds = torch.nn.Parameter(nesy.llm.encoder_model.model.embed_tokens(knowledge_id))#.repeat(embedding.shape[0], 1, 1)
-
-    if args.use_knowledge_in_task.lower() == "soft":
-        optimizer_lr = args.lr
-    else:
-        optimizer_lr = args.task_finetune_lr
-
-    optimizer = torch.optim.Adam([input_embeds], lr=optimizer_lr)
-    keep_training = True
-    test_loss_ls = []
-    
-    while keep_training:
-
-        for i, batch in tqdm(enumerate(subtask_train_data_loader)):
-
-            if i % 100 == 0:
+            if training_step % 10 == 0:
                 test_loss = 0
                 with torch.no_grad():
                     for batch in subtask_valid_data_loader:
+                        knowledge_batch = batch["knowledge"]
                         x_batch = batch["input"]
                         x_batch = [prompt_template.format(x) for x in x_batch]
                         y_batch = batch["target"]
@@ -100,7 +72,97 @@ def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_
 
                         if args.use_knowledge_in_task.lower() in ["hard", "soft"]:
                             if args.use_chat_template:
-                                x_batch = [nesy.llm.tokenizer.apply_chat_template([{"role": "system", "content": knowledge}, {"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+                                x_batch = [nesy.llm.tokenizer.apply_chat_template([{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+                            else:
+                                x_batch = [knowledge + x_batch[i] for i in range(len(x_batch))]
+                        else:
+                            if args.use_chat_template:
+                                x_batch = [nesy.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+                        if args.use_knowledge_in_task.lower() == "soft":
+                            knowledge_for_task_params = input_embeds.view(input_embeds.shape[0], -1)
+                            params = torch.cat([params, knowledge_for_task_params], dim=1)
+                            original_soft_token = nesy.args.num_soft_token
+                            original_latent_size = nesy.args.latent_size
+                            nesy.args.num_soft_token = original_soft_token + input_embeds.shape[1]
+                            nesy.args.latent_size = params.shape[1]
+
+                        expanded_params = params.repeat_interleave(len(x_batch), dim=0)
+                        test_loss += nesy.compute_task_loss(expanded_params, x_batch, y_batch)
+
+                        if args.use_knowledge_in_task.lower() == "soft":
+                            nesy.args.num_soft_token = original_soft_token
+                            nesy.args.latent_size = original_latent_size
+
+                    test_loss /= len(subtask_valid_data_loader.dataset)
+                    test_loss_ls.append(test_loss.tolist())
+                    if len(test_loss_ls) > args.task_finetune_step:
+                        if test_loss_ls[-1] > test_loss_ls[-2]:
+                            keep_training = False
+                            break
+    
+    return params, [0], test_loss_ls
+
+def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template):
+
+    #knowledge = "<instruction>Follow the instruction and answer the question: I do not know anything.</instruction>"
+    knowledge = "<instruction>You are given an input sentence, you need to generate the output sentence based on the given input. Unfortunately, you do not know anything about what you should do about the input.</instruction>"
+    knowledge_id = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
+    input_embeds = torch.nn.Parameter(nesy.llm.encoder_model.model.embed_tokens(knowledge_id))#.repeat(embedding.shape[0], 1, 1)
+
+    if args.use_knowledge_in_task.lower() == "soft":
+        optimizer_lr = args.lr
+    else:
+        optimizer_lr = args.task_finetune_lr
+
+    optimizer = torch.optim.Adam([input_embeds], lr=optimizer_lr)
+    keep_training = True
+    train_loss_ls = []
+    test_loss_ls = []
+    
+    training_step = 0
+    while keep_training:
+
+        for batch in subtask_train_data_loader:
+
+            optimizer.zero_grad()
+            knowledge_batch = batch["knowledge"]
+            x_batch = batch["input"]
+            x_batch = [prompt_template.format(x) for x in x_batch]
+            y_batch = batch["target"]
+
+            if args.use_knowledge_in_task.lower() in ["hard", "soft"]:
+                if args.use_chat_template:
+                    x_batch = [nesy.llm.tokenizer.apply_chat_template([{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+                else:
+                    x_batch = [knowledge_batch[i] + x_batch[i] for i in range(len(x_batch))]
+            else:
+                if args.use_chat_template:
+                    x_batch = [nesy.llm.tokenizer.apply_chat_template([{"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
+
+            params, _ = nesy.encode(input_embeds)
+            params = params.to(nesy.args.task_device)
+            expanded_params = params.repeat_interleave(len(x_batch), dim=0)
+            task_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch) #* args.task_loss_weight + args.reg_loss_weight * params.norm(1, dim=1).mean() / args.latent_size
+            task_loss.backward()
+            optimizer.step()
+            training_step += 1
+            train_loss_ls.append(task_loss.tolist())
+
+            if training_step % 10 == 0:
+                test_loss = 0
+                with torch.no_grad():
+                    for batch in subtask_valid_data_loader:
+                        knowledge_batch = batch["knowledge"]
+                        x_batch = batch["input"]
+                        x_batch = [prompt_template.format(x) for x in x_batch]
+                        y_batch = batch["target"]
+
+                        # if args.use_knowledge_in_task.lower() == "hard":
+                        #     x_batch = [knowledge + x_batch[i] for i in range(len(x_batch))]
+
+                        if args.use_knowledge_in_task.lower() in ["hard", "soft"]:
+                            if args.use_chat_template:
+                                x_batch = [nesy.llm.tokenizer.apply_chat_template([{"role": "system", "content": knowledge_batch[i]}, {"role": "user", "content": x_batch[i]}], tokenize=False) for i in range(len(x_batch))]
                             else:
                                 x_batch = [knowledge + x_batch[i] for i in range(len(x_batch))]
                         else:
@@ -132,20 +194,9 @@ def train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_
                             keep_training = False
                             break
 
-            optimizer.zero_grad()
-            x_batch = batch["input"]
-            x_batch = [prompt_template.format(x) for x in x_batch]
-            y_batch = batch["target"]
-            params, _ = nesy.encode(input_embeds)
-            params = params.to(nesy.args.task_device)
-            expanded_params = params.repeat_interleave(len(x_batch), dim=0)
-            task_loss = nesy.compute_task_loss(expanded_params, x_batch, y_batch) #* args.task_loss_weight + args.reg_loss_weight * params.norm(1, dim=1).mean() / args.latent_size
-            task_loss.backward()
-            optimizer.step()
-    
     params, _ = nesy.encode(input_embeds)
     params = params.to(nesy.args.task_device)
-    return params, test_loss_ls
+    return params, train_loss_ls, test_loss_ls
 
 def tagi_pretrain_subtask(args, train_data, nesy, prompt_template, log):
     
@@ -289,57 +340,58 @@ def test_neural2symbolic(args, epoch, test_data, nesy, prompt_template, evaluate
         subtask_train_data_loader = DataLoader(subtask_train_data, batch_size=args.batch_size, shuffle=True)
         subtask_valid_data_loader = DataLoader(subtask_valid_data, batch_size=args.batch_size, shuffle=True)
         knowledge = subtask_valid_data[0]["knowledge"]
-        num_samples = 1
 
-        knowledge_ids = nesy.llm.tokenizer(knowledge, return_tensors="pt").input_ids.to(nesy.args.encoder_device)
+        knowledge_ids = nesy.llm.tokenizer(knowledge, return_tensors="pt", add_special_tokens=True).input_ids.to(nesy.args.encoder_device)
         #encoded_latent = [nesy.reparameterize(*nesy.encode(knowledge_ids)) for i in range(num_samples)]
         #randomn_latent = [torch.randn([1, nesy.args.latent_size]) for i in range(num_samples)]
-        trained_latents = []
 
-        for i in range(num_samples):
+        if args.indirect_finetune:
+            trained_params, train_loss_ls, test_loss_ls = train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template)
+        else:
+            trained_params, train_loss_ls, test_loss_ls = train_subtask(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template)
 
-            if args.indirect_finetune:
-                trained_params, test_loss_ls = train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template)
+        with torch.no_grad():
+
+            if args.method == "vaeflow":
+                trained_latent = trained_params.to(nesy.args.flow_device)
+                trained_latent = nesy.flow_backward(trained_params).to(nesy.args.decoder_device)
             else:
-                trained_params, test_loss_ls = train_subtask(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template)
-
-            with torch.no_grad():
-
-                if args.method == "vaeflow":
-                    trained_latent = trained_params.to(nesy.args.flow_device)
-                    trained_latent = nesy.flow_backward(trained_params).to(nesy.args.decoder_device)
+                if args.nf:
+                    trained_latent = nesy.flow_backward(trained_params.to(nesy.args.flow_device)).to(nesy.args.decoder_device)
                 else:
-                    if args.nf:
-                        trained_latent = nesy.flow_backward(trained_params.to(nesy.args.flow_device)).to(nesy.args.decoder_device)
-                    else:
-                        trained_latent = trained_params.to(nesy.args.decoder_device)
+                    trained_latent = trained_params.to(nesy.args.decoder_device)
 
-                if nesy.args.use_instance_in_decoder:
-                    batch = random.choice(subtask_train_data_loader.dataset)
-                    x = batch["input"]
-                    y = batch["target"]
-                    instance_text = f"input: {x}, target: {y}. This task is to:"
-                    print(instance_text)
-                    instance_ids = nesy.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.decoder_device)
-                else:
-                    instance_ids = None
-                    # instance_text = f"This task is to:"
-                    # print(instance_text)
-                    # instance_ids = nesy.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.decoder_device)
-                    
-                predicted_knowledge = nesy.predict_knowledge(trained_latent, sample_from_guassian=False, instance=instance_ids)
-                #encoded_params = encoded_latent[i].to(nesy.args.decoder_device)
-                #encode_decode_knowledge = nesy.sample(encoded_params, sample_from_guassian=False)
+            if nesy.args.use_instance_in_decoder:
+                batch = random.choice(subtask_train_data_loader.dataset)
+                x = batch["input"]
+                y = batch["target"]
+                instance_text = f"input: {x}, target: {y}. This task is to:"
+                print(instance_text)
+                instance_ids = nesy.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.decoder_device)
+            else:
+                instance_ids = None
+                # instance_text = f"This task is to:"
+                # print(instance_text)
+                # instance_ids = nesy.llm.tokenizer(instance_text, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(nesy.args.decoder_device)
+            
+            predicted_knowledge = nesy.predict_knowledge(trained_latent, sample_from_guassian=False, instance=instance_ids)
+            #encoded_params = encoded_latent[i].to(nesy.args.decoder_device)
+            #encode_decode_knowledge = nesy.sample(encoded_params, sample_from_guassian=False)
 
-            log.writelines(f"prediction on {name} subtask {task_id}: \n")
-            log.writelines(f"subtask train loss: {str(test_loss_ls)} \n")
-            result = nesy.eval_knowledge(knowledge, predicted_knowledge, evaluater)
-            log.writelines(f"{json.dumps(result, indent=4)}\n")
-            num_correct_symbolic += result["score"]
-            # result = nesy.eval_knowledge(knowledge, encode_decode_knowledge, evaluater)
-            # log.writelines(f"{json.dumps(result, indent=4)}\n")
-            num_test_symbolic += 1
-            log.flush()
+            reconstructed_latent = nesy.encode(knowledge_ids)[0].to(args.decoder_device)
+            reconstructed_knowledge = nesy.predict_knowledge(reconstructed_latent, sample_from_guassian=False, instance=instance_ids)
+
+        log.writelines(f"prediction on {name} subtask {task_id}: \n")
+        log.writelines(f"subtask train loss: {str(train_loss_ls)} \n")
+        log.writelines(f"subtask test loss: {str(test_loss_ls)} \n")
+        result = nesy.eval_knowledge(knowledge, predicted_knowledge, evaluater)
+        log.writelines(f"{json.dumps(result, indent=4)}\n")
+        log.writelines(f"reconstructed_knowledge: {reconstructed_knowledge} \n")
+        num_correct_symbolic += result["score"]
+        # result = nesy.eval_knowledge(knowledge, encode_decode_knowledge, evaluater)
+        # log.writelines(f"{json.dumps(result, indent=4)}\n")
+        num_test_symbolic += 1
+        log.flush()
 
     accuracy = num_correct_symbolic / num_test_symbolic
     log.writelines(f"neural2symbolic accuracy on {name} samples: {accuracy} \n")
@@ -358,7 +410,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
 
     if method == "finetuning":
 
-        params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16)
+        params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.float32)
         if args.use_trainable_task_model:
             optimizer = torch.optim.Adam(
                 [{'params': params, 'lr': args.task_finetune_lr}, 
@@ -439,7 +491,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                 y_pred = [post_process_for_prompting(y) for y in y_pred]
             elif method == "finetuning":
                 if args.fuse_method == "delta":
-                    new_task_parameters = nesy.llm.allocate(params)
+                    new_task_parameters = nesy.llm.allocate(params[0])
                     y_pred = nesy.llm.predict_task(input_ids, new_task_parameters)
                 elif args.fuse_method == "p-tuning":
                     expanded_params = params.repeat_interleave(len(input_text), dim=0)
@@ -496,7 +548,7 @@ def test_neural_task(args, seen_task_train_data_loader, seen_task_test_data_load
                 y_pred = [post_process_for_prompting(y) for y in y_pred]
             elif method == "finetuning":
                 if args.fuse_method == "delta":
-                    new_task_parameters = nesy.llm.allocate(params)
+                    new_task_parameters = nesy.llm.allocate(params[0])
                     y_pred = nesy.llm.predict_task(input_ids, new_task_parameters)
                 elif args.fuse_method == "p-tuning":
                     expanded_params = params.repeat_interleave(len(input_text), dim=0)
@@ -633,8 +685,7 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                 #input_text += f"{x['input']}."
                 #input_ids = nesy.llm.tokenizer(input_text, return_tensors="pt").input_ids.to(nesy.args.task_device)
                 for _ in range(5):
-                    instance_text = openai.chat.completions.create(model="gpt-4o-mini", 
-                                                                   messages=input_message, temperature=0.0).choices[0].message.content
+                    instance_text = client.chat.completions.create(model="gpt-4o-mini", messages=input_message, temperature=0.0).choices[0].message.content
                     # instance_text = nesy.llm.predict_task(input_ids)[0]
                     instances = instance_text.split("Input: ")
                     for instance in instances:
@@ -688,7 +739,7 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
         seen_task_train_data_loader = DataLoader(seen_train_data_induction, batch_size=args.batch_size//4, shuffle=True)
         seen_task_test_data_loader = DataLoader(seen_test_data_induction, batch_size=args.batch_size//4, shuffle=True)
 
-        params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.bfloat16)
+        params = torch.randn(size=[1, nesy.args.latent_size], requires_grad=True, device=nesy.args.task_device, dtype=torch.float32)
         if args.use_trainable_task_model:
             optimizer = torch.optim.Adam(
                 [{'params': params, 'lr': args.task_finetune_lr}, 
@@ -720,7 +771,7 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
                         test_loss_ls.append(test_loss.tolist())
                         log.writelines(f"{test_loss.tolist()}\n")
                         log.flush()
-                        if len(test_loss_ls) > args.task_finetune_step*3:
+                        if len(test_loss_ls) > args.task_finetune_step:
                             if test_loss_ls[-1] > test_loss_ls[-2]:
                                 keep_training = False
                                 break
@@ -771,14 +822,16 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
             input_ids = nesy.llm.tokenizer(input_message, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
             if method in ["prompting", "icl"]:
-                predicted_knowledge = nesy.llm.predict_task(input_ids)[0]
+                predicted_knowledge = nesy.llm.predict_task(input_ids)#[0]
                 #predicted_ids = nesy.llm.task_model.generate(input_ids, max_new_tokens=nesy.args.max_token)
                 #predicted_knowledge = nesy.llm.tokenizer.decode(predicted_ids[0][len(input_ids[0]):], skip_special_tokens=True)
                 predicted_knowledge = post_process_for_prompting(predicted_knowledge)
             elif method in ["finetuning", "itd"]:
                 if args.fuse_method == "delta":
-                    new_task_parameters = nesy.llm.allocate(params)
+                    new_task_parameters = nesy.llm.allocate(params[0])
                     predicted_knowledge = nesy.llm.predict_task(input_ids, new_task_parameters)
+                    # predicted_knowledge = nesy.predict_knowledge(params.to(nesy.args.decoder_device), sample_from_guassian=False, instance=None)
+
                 elif args.fuse_method == "p-tuning":
                     expanded_params = params.repeat_interleave(input_ids.shape[0], dim=0)
                     predicted_knowledge = nesy.llm.predict_task(input_ids, expanded_params)
@@ -831,13 +884,13 @@ def test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unse
             input_ids = nesy.llm.tokenizer(input_message, return_tensors="pt").input_ids.to(nesy.args.task_device)
 
             if method in ["prompting", "icl"]:
-                predicted_knowledge = nesy.llm.predict_task(input_ids)[0]
+                predicted_knowledge = nesy.llm.predict_task(input_ids)#[0]
                 #predicted_ids = nesy.llm.task_model.generate(input_ids, max_new_tokens=nesy.args.max_token)
                 #predicted_knowledge = nesy.llm.tokenizer.decode(predicted_ids[0][len(input_ids[0]):], skip_special_tokens=True)
                 predicted_knowledge = post_process_for_prompting(predicted_knowledge)
             elif method in ["finetuning", "itd"]:
                 if args.fuse_method == "delta":
-                    new_task_parameters = nesy.llm.allocate(params)
+                    new_task_parameters = nesy.llm.allocate(params[0])
                     predicted_knowledge = nesy.llm.predict_task(input_ids, new_task_parameters)
                 elif args.fuse_method == "p-tuning":
                     expanded_params = params.repeat_interleave(input_ids.shape[0], dim=0)
@@ -1244,8 +1297,7 @@ def icl_inference(args, train_data_loader, test_data_loader, nesy, prompt_templa
                 #for _ in range(5):
                 #predicted_knowledge = nesy.llm.predict_task(input_ids, sample=True)[0]
                 #predicted_knowledge = post_process_for_prompting(predicted_knowledge)
-                predicted_knowledge = openai.chat.completions.create(model="gpt-4o-mini", 
-                                                               messages=input_message, temperature=0.5).choices[0].message.content
+                predicted_knowledge = client.chat.completions.create(model="gpt-4o-mini", messages=input_message, temperature=0.5).choices[0].message.content
 
                 print(predicted_knowledge)
 
@@ -1406,11 +1458,11 @@ def main(args):
             if key not in ["exp_dir", "load_exp", "load_epoch", "encoder_device", "decoder_device", "task_device", 
                            "flow_device", "noise_device", "task_finetune_step", "task_finetune_lr", "batch_size",
                            "zero_init", "dataset", "pretraining", "valid_epoch", "save_epoch", "task_model_name_or_path",
-                           "method", "test_sample_num", "dataset"]:
+                           "model_name_or_path", "method", "test_sample_num", "dataset", "use_trainable_task_model", "indirect_finetune"]:
                 args.__dict__[key] = loaded_args[key]
         args.load_nesy_ckpt = f"{args.load_exp}/epoch{args.load_epoch}/nesy_ckpt/"
         start_epoch = args.load_epoch
-        file_mode = "a"
+        file_mode = "w"
     else:
         # training from scratch
         args.load_nesy_ckpt = None
@@ -1472,16 +1524,16 @@ def main(args):
         raise Exception("undefined prior")
     
     if args.prior == "vaeflow":
-        nesy = Nesy(args)#.to(torch.bfloat16)
+        nesy = Nesy(args)#.to(torch.float32)
     else:
-        nesy = Nesy(args).to(torch.bfloat16)
+        nesy = Nesy(args).to(torch.float32)
 
     if args.method == "nesy":
         optimizer = torch.optim.Adam([
             {'params': nesy.llm.encoder.parameters(), 'lr': args.lr},
             {'params': nesy.encoder_mlp.parameters(), 'lr': args.lr},
             {'params': nesy.llm.decoder.parameters(), 'lr': args.lr},
-            {'params': nesy.decoder_mlp.parameters(), 'lr': args.lr},
+            #{'params': nesy.decoder_mlp.parameters(), 'lr': args.lr},
             #{'params': nesy.flow_net.parameters(), 'lr': args.lr},
             #{'params': nesy.logZ, 'lr': args.lr}
                                     ], lr=args.lr)
@@ -1490,7 +1542,11 @@ def main(args):
             
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=10)
         train_log = open(f"{args.exp_dir}/train.log", file_mode)
-        
+
+        info = get_gpu_memory_usage()
+        train_log.writelines(f"{info}\n")
+        train_log.flush()
+
         train_data_loader = seen_train_data_loader if not args.pretraining else train_data_loader
 
         for epoch in range(start_epoch, args.num_epochs):
@@ -1503,14 +1559,13 @@ def main(args):
 
                 mkdir(f"{args.exp_dir}/epoch{epoch}")
 
-                neural2symbolic_test_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
-                symbolic2neural_test_log = open(f"{args.exp_dir}/epoch{epoch}/symbolic2neural.log", file_mode)
+                # neural2symbolic_test_log = open(f"{args.exp_dir}/epoch{epoch}/neural2symbolic.log", file_mode)
+                # test_neural2symbolic(args, epoch, data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="seen task")
+                # test_neural2symbolic(args, epoch, data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="unseen task")
 
+                symbolic2neural_test_log = open(f"{args.exp_dir}/epoch{epoch}/symbolic2neural.log", file_mode)
                 test_symbolic2neural(args, epoch, seen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="seen task test")
                 test_symbolic2neural(args, epoch, unseen_test_data_loader, nesy, prompt_template, neural_evaluater, symbolic2neural_test_log, name="unseen task test")
-
-                test_neural2symbolic(args, epoch, data["seen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="seen task")
-                test_neural2symbolic(args, epoch, data["unseen_tasks"]["test"], nesy, prompt_template, symbolic_evaluater, neural2symbolic_test_log, name="unseen task")
 
             for i, batch in tqdm(enumerate(train_data_loader), desc=f"epoch {epoch}"):
 
@@ -1609,11 +1664,54 @@ def main(args):
 
         tagi_train_hypernet(args, data["seen_tasks"]["train"], nesy, prompt_template, hypernet_log)
 
+    elif args.method == "correlation":
+        from sentence_transformers import SentenceTransformer
+        from sklearn.metrics.pairwise import cosine_similarity
+        from scipy.stats import spearmanr
+        from sentence_transformers import SentenceTransformer
+
+        embed_model = SentenceTransformer('all-MiniLM-L6-v2')
+        train_data = data["seen_tasks"]["train"]
+        all_tasks_ids = sorted(list(set([sample["sub_task_id"] for sample in train_data])))
+        k_list = []
+        params = []
+        
+        for task_id in all_tasks_ids:
+            subtask_data = [data for data in train_data if data["sub_task_id"] == task_id]
+            subtask_train_data = subtask_data#[:-1]
+            subtask_valid_data = subtask_data[-1:]
+            subtask_train_data_loader = DataLoader(subtask_train_data, batch_size=args.batch_size, shuffle=True)
+            subtask_valid_data_loader = DataLoader(subtask_valid_data, batch_size=args.batch_size, shuffle=True)
+            knowledge = subtask_valid_data[0]["knowledge"]
+            k_list.append(knowledge.replace("<instruction>", "").replace("</instruction>", ""))
+
+            # trained_params, test_loss_ls = train_subtask_indirect(args, nesy, subtask_train_data_loader, subtask_valid_data_loader, prompt_template)
+            # print(f"finish training subtask {task_id}")
+            # save_dir = f"{args.exp_dir}/parameters"
+            # mkdir(save_dir)
+            # torch.save(trained_params, f"{save_dir}/{task_id}.pth")
+
+            trained_params = torch.load(f"{args.exp_dir}/parameters/{task_id}.pth")
+            params.append(trained_params)
+
+        e_k = embed_model.encode(k_list)  # 形状: (N, d)
+        S_k = cosine_similarity(e_k)  # 指令相似度矩阵
+        print(S_k)
+
+        output_features = torch.stack(params).squeeze(1).to(torch.float32).detach().cpu().numpy()  # 形状: (N, feature_dim)
+        S_theta = cosine_similarity(output_features)  # 行为相似度矩阵
+        print(S_theta)
+
+        S_k_flat = S_k[np.triu_indices(len(k_list), k=1)]  # 上三角元素
+        S_theta_flat = S_theta[np.triu_indices(len(k_list), k=1)]
+        rho, p_value = spearmanr(S_k_flat, S_theta_flat)
+        print(f"Spearman ρ: {rho:.3f}, p-value: {p_value:.4f}")
+
     else:
-        if args.method in ["prompting", "finetuning", "itd"]:
-            symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
-            test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, 
-                               prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
+        # if args.method in ["prompting", "finetuning", "itd"]:
+        #     symbolic_task_test_log = open(f"{args.exp_dir}/symbolic_task.log", "w")
+        #     test_symbolic_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, 
+        #                        prompt_template, symbolic_evaluater, symbolic_task_test_log, method=args.method)
         if args.method in ["prompting", "finetuning", "tagi"]:
             neural_task_test_log = open(f"{args.exp_dir}/neural_task.log", "w")
             test_neural_task(args, seen_train_data_loader, seen_test_data_loader, unseen_test_data_loader, nesy, 
@@ -1654,7 +1752,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_epoch', type=int, default=10, help='the number of epochs to save the model.')
 
     parser.add_argument('--task_finetune_step', type=int, default=100, help='the number of steps to finetune the task model.')
-    parser.add_argument('--task_finetune_lr', type=float, default=1e-2, help='the learning rate to finetune the task model.')
+    parser.add_argument('--task_finetune_lr', type=float, default=1e-1, help='the learning rate to finetune the task model.')
     parser.add_argument('--zero_init', action="store_true", default=False, help='whether to initialize the task model parameters to zero.')
 
     parser.add_argument('--alignment_loss_weight', type=float, default=1, help='the weight of the alignment loss.')

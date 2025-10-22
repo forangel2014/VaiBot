@@ -22,7 +22,7 @@ class WrappedLLM(nn.Module):
         super(WrappedLLM, self).__init__()
         self.args = args
         self.config = AutoConfig.from_pretrained(args.model_name_or_path)
-        self.dtype = torch.bfloat16
+        self.dtype = torch.float32
 
         if args.task_model_name_or_path is None:
             args.task_model_name_or_path = args.model_name_or_path
@@ -82,7 +82,7 @@ class WrappedLLM(nn.Module):
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False, padding_side='left', add_bos_token=False, add_eos_token=True)
 
-        if args.method in ["nesy", "nesy_iterative"]:
+        if args.method in ["nesy", "nesy_iterative", "correlation", "finetuning", "itd"]:
 
             self.encoder_model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path,
                                                             device_map=args.encoder_device,#"auto",
@@ -134,7 +134,9 @@ class WrappedLLM(nn.Module):
                 self.param_info = self.specify_parameter(n=args.latent_size)
         
         elif args.method == "tagi_pretrain":
-            
+            self.param_info = self.specify_parameter(n=args.latent_size)
+
+        elif args.method == "finetuning":
             self.param_info = self.specify_parameter(n=args.latent_size)
 
         elif args.method in ["tagi_train_hypernet", "nesy_visualize", "tagi"]:
@@ -178,8 +180,10 @@ class WrappedLLM(nn.Module):
         if self.args.fuse_method == "delta":
             
             param_counts = {}
+
+            num_layers = self.task_model.model.config.num_hidden_layers
         
-            selected_layer_id = [f".{31-i}." for i in range(self.args.selected_layers)]
+            selected_layer_id = [f".{num_layers-1-i}." for i in range(self.args.selected_layers)]
             for name, params in dict(self.task_model.named_parameters()).items():
                 if params.dtype == self.dtype and "layers" in name and "_proj" in name:
                     if any([id_ in name for id_ in selected_layer_id]):
@@ -320,9 +324,17 @@ class WrappedLLM(nn.Module):
                                     # stopping_criteria=stopping_criteria
                                     )
 
-            decoded_tokens = response[0][x_id.shape[1]:]
-            
-            text = self.tokenizer.decode(decoded_tokens, skip_special_tokens=True).replace(self.tokenizer.pad_token, "")
+            if response.shape[0] == 1:
+                decoded_tokens = response[0][x_id.shape[1]:]
+                text = self.tokenizer.decode(decoded_tokens, skip_special_tokens=True).replace(self.tokenizer.pad_token, "")
+            else:
+                decoded_tokens = [response[i][x_id.shape[1]:] for i in range(response.shape[0])]
+                text = [self.tokenizer.decode(tokens, skip_special_tokens=True).replace(self.tokenizer.pad_token, "") for tokens in decoded_tokens]
+
+            if type(text) == list:
+                text = [t.split("|endoftext|")[0] for t in text]
+            else:
+                text = text.split("<|endoftext|>")[0]
 
         elif self.args.fuse_method == "p-tuning":
             
@@ -383,7 +395,7 @@ class WrappedLLM(nn.Module):
                                         # stopping_criteria=stopping_criteria
                                         )
             
-            text = [self.tokenizer.decode(response[i], skip_special_tokens=True).replace(self.tokenizer.pad_token, "") for i in range(batch_size)]
+            text = [self.tokenizer.decode(response[i], skip_special_tokens=True).split("<|endoftext|>")[0].replace(self.tokenizer.pad_token, "") for i in range(batch_size)]
         
         return text
 
@@ -396,7 +408,7 @@ class WrappedLLM(nn.Module):
         if instance_embedding is not None:
             embedding = torch.cat((embedding, instance_embedding), dim=1)
         
-        embedding = embedding.bfloat16()
+        #embedding = embedding.float32()
         
         response = self.decoder_model.generate(inputs_embeds=embedding, 
                                 max_new_tokens=self.args.max_token, 
@@ -407,5 +419,6 @@ class WrappedLLM(nn.Module):
                                 #do_sample=False,
                                 # stopping_criteria=stopping_criteria
                                 )
+
 
         return response

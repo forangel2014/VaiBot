@@ -57,7 +57,7 @@ def create_new_weight(indices, values, shape):
     new_weight = torch.sparse_coo_tensor(indices=torch.tensor(indices).to(values.device), 
                                             values=values, 
                                             size=shape,
-                                            dtype=torch.bfloat16).to_dense()
+                                            dtype=torch.float32).to_dense()
     return new_weight
 
 class LlamaRMSNorm(nn.Module):
@@ -1257,7 +1257,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             cache_position=cache_position,
         )
 
-        hidden_states = outputs[0].bfloat16()
+        hidden_states = outputs[0]#.bfloat16()
         if self.config.pretraining_tp > 1:
             lm_head_slices = self.lm_head.weight.split(self.vocab_size // self.config.pretraining_tp, dim=0)
             logits = [F.linear(hidden_states, lm_head_slices[i]) for i in range(self.config.pretraining_tp)]

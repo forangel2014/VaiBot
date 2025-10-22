@@ -78,6 +78,13 @@ def _get_unpad_data(attention_mask):
         max_seqlen_in_batch,
     )
 
+def create_new_weight(indices, values, shape):
+
+    new_weight = torch.sparse_coo_tensor(indices=torch.tensor(indices).to(values.device), 
+                                            values=values, 
+                                            size=shape,
+                                            dtype=torch.float32).to_dense()
+    return new_weight
 
 # Copied from transformers.models.llama.modeling_llama.LlamaRMSNorm with Llama->Qwen2
 class Qwen2RMSNorm(nn.Module):
@@ -182,8 +189,30 @@ class Qwen2MLP(nn.Module):
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
         self.act_fn = ACT2FN[config.hidden_act]
 
-    def forward(self, hidden_state):
-        return self.down_proj(self.act_fn(self.gate_proj(hidden_state)) * self.up_proj(hidden_state))
+    def forward(self, x):
+
+        fuse_new_params = False
+        if type(x) == list:
+            x, mlp_params = x
+            fuse_new_params = True
+            for k, v in mlp_params.items():
+                indices, values = v
+                if "gate_proj" in k:
+                    new_gate_proj = create_new_weight(indices=indices, values=values, shape=self.gate_proj.weight.shape)
+                if "up_proj" in k:
+                    new_up_proj = create_new_weight(indices=indices, values=values, shape=self.up_proj.weight.shape)
+                if "down_proj" in k:
+                    new_down_proj = create_new_weight(indices=indices, values=values, shape=self.down_proj.weight.shape)
+
+        if fuse_new_params:
+            gate_proj_out = self.act_fn(self.gate_proj(x) + torch.matmul(x, new_gate_proj.T))
+            up_proj_out = gate_proj_out * (self.up_proj(x) + torch.matmul(x, new_up_proj.T))
+            down_proj = self.down_proj(up_proj_out) + torch.matmul(up_proj_out, new_down_proj.T)
+        else:
+            down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+
+
+        return down_proj
 
 
 # Copied from transformers.models.llama.modeling_llama.repeat_kv
@@ -630,6 +659,22 @@ class Qwen2SdpaAttention(Qwen2Attention):
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+        fuse_new_params = False
+        if type(hidden_states) == list:
+            hidden_states, attn_params = hidden_states
+            fuse_new_params = True
+            for k, v in attn_params.items():
+                indices, values = v
+                if "q_proj" in k:
+                    new_q_proj = create_new_weight(indices=indices, values=values, shape=self.q_proj.weight.shape)
+                if "k_proj" in k:
+                    new_k_proj = create_new_weight(indices=indices, values=values, shape=self.k_proj.weight.shape)
+                if "v_proj" in k:
+                    new_v_proj = create_new_weight(indices=indices, values=values, shape=self.v_proj.weight.shape)
+                if "o_proj" in k:
+                    new_o_proj = create_new_weight(indices=indices, values=values, shape=self.o_proj.weight.shape)
+        
+        
         if output_attentions:
             # TODO: Improve this warning with e.g. `model.config.attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
@@ -647,9 +692,14 @@ class Qwen2SdpaAttention(Qwen2Attention):
 
         bsz, q_len, _ = hidden_states.size()
 
-        query_states = self.q_proj(hidden_states)
-        key_states = self.k_proj(hidden_states)
-        value_states = self.v_proj(hidden_states)
+        if fuse_new_params:
+            query_states = self.q_proj(hidden_states) + torch.matmul(hidden_states, new_q_proj.T)
+            key_states = self.k_proj(hidden_states) + torch.matmul(hidden_states, new_k_proj.T)
+            value_states = self.v_proj(hidden_states) + torch.matmul(hidden_states, new_v_proj.T)
+        else:
+            query_states = self.q_proj(hidden_states)
+            key_states = self.k_proj(hidden_states)
+            value_states = self.v_proj(hidden_states)
 
         query_states = query_states.view(bsz, q_len, self.num_heads, self.head_dim).transpose(1, 2)
         key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
@@ -697,7 +747,10 @@ class Qwen2SdpaAttention(Qwen2Attention):
         attn_output = attn_output.transpose(1, 2).contiguous()
         attn_output = attn_output.view(bsz, q_len, self.hidden_size)
 
-        attn_output = self.o_proj(attn_output)
+        if fuse_new_params:
+            attn_output = self.o_proj(attn_output) + torch.matmul(attn_output, new_o_proj)
+        else:
+            attn_output = self.o_proj(attn_output)
 
         return attn_output, None, past_key_value
 
@@ -754,14 +807,27 @@ class Qwen2DecoderLayer(nn.Module):
                 Arbitrary kwargs to be ignored, used for FSDP and other methods that injects code
                 into the model
         """
+        fuse_new_params = False
+        
+        if type(hidden_states) == list:
+            
+            hidden_states, layer_params = hidden_states
+            attention_params = {k: v for k, v in layer_params.items() if f"self_attn" in k}
+            mlp_params = {k: v for k, v in layer_params.items() if f"mlp" in k}
+            fuse_new_params = True
+
 
         residual = hidden_states
 
         hidden_states = self.input_layernorm(hidden_states)
 
         # Self Attention
+        if fuse_new_params:
+            combined_attn_input = [hidden_states, attention_params]
+        else:
+            combined_attn_input = hidden_states
         hidden_states, self_attn_weights, present_key_value = self.self_attn(
-            hidden_states=hidden_states,
+            hidden_states=combined_attn_input,
             attention_mask=attention_mask,
             position_ids=position_ids,
             past_key_value=past_key_value,
@@ -774,7 +840,11 @@ class Qwen2DecoderLayer(nn.Module):
         # Fully Connected
         residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
-        hidden_states = self.mlp(hidden_states)
+        if fuse_new_params:
+            combined_mlp_input = [hidden_states, mlp_params]
+        else:
+            combined_mlp_input = hidden_states
+        hidden_states = self.mlp(combined_mlp_input)#(hidden_states)
         hidden_states = residual + hidden_states
 
         outputs = (hidden_states,)
@@ -953,6 +1023,12 @@ class Qwen2Model(Qwen2PreTrainedModel):
         return_dict: Optional[bool] = None,
         cache_position: Optional[torch.LongTensor] = None,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
+
+        fuse_new_params = False
+        if type(input_ids) == list:
+            fuse_new_params = True
+            input_ids, new_task_parameters = input_ids
+
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -1003,6 +1079,7 @@ class Qwen2Model(Qwen2PreTrainedModel):
         all_hidden_states = () if output_hidden_states else None
         all_self_attns = () if output_attentions else None
         next_decoder_cache = None
+        layer_id = 0
 
         for decoder_layer in self.layers:
             if output_hidden_states:
@@ -1020,8 +1097,16 @@ class Qwen2Model(Qwen2PreTrainedModel):
                     cache_position,
                 )
             else:
+                if fuse_new_params:
+                    layer_params = {k: v for k, v in new_task_parameters.items() if f".{layer_id}." in k}
+                    if len(layer_params):
+                        combined_input = [hidden_states, layer_params]
+                    else:
+                        combined_input = hidden_states
+                else:
+                    combined_input = hidden_states
                 layer_outputs = decoder_layer(
-                    hidden_states,
+                    combined_input,
                     attention_mask=causal_mask,
                     position_ids=position_ids,
                     past_key_value=past_key_values,
@@ -1037,6 +1122,8 @@ class Qwen2Model(Qwen2PreTrainedModel):
 
             if output_attentions:
                 all_self_attns += (layer_outputs[1],)
+
+            layer_id += 1
 
         hidden_states = self.norm(hidden_states)
 

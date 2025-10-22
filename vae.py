@@ -27,12 +27,12 @@ class Nesy(nn.Module):
                 nn.Linear(self.hidden_size, self.latent_size*2)
             ).to(self.args.encoder_device)#to(self.args.flow_device)
             
-            self.decoder_mlp = nn.Sequential(
-                nn.Linear(self.latent_size, self.hidden_size),
-                nn.ReLU(),
-                nn.Linear(self.hidden_size, self.hidden_size*self.args.num_soft_token),
-                nn.Sigmoid()
-            ).to(self.args.decoder_device)#to(self.args.flow_device)
+            # self.decoder_mlp = nn.Sequential(
+            #     nn.Linear(self.latent_size, self.hidden_size),
+            #     nn.ReLU(),
+            #     nn.Linear(self.hidden_size, self.hidden_size*self.args.num_soft_token),
+            #     nn.Sigmoid()
+            # ).to(self.args.decoder_device)#to(self.args.flow_device)
 
             if args.load_nesy_ckpt:
                 self.load(args.load_nesy_ckpt)
@@ -42,7 +42,7 @@ class Nesy(nn.Module):
                     INN.Nonlinear(self.latent_size, method="RealNVP"),
                 ).to(self.args.flow_device)
 
-        elif args.method in ["tagi_train_hypernet", "nesy_visualize", "tagi"]:
+        elif args.method in ["tagi_train_hypernet", "nesy_visualize", "tagi", "correlation"]:
 
             self.encoder_mlp = nn.Sequential(
                 nn.Linear(self.hidden_size, self.hidden_size),
@@ -55,12 +55,12 @@ class Nesy(nn.Module):
     def save(self, dir):
         mkdir(dir)
         torch.save(self.encoder_mlp.state_dict(), os.path.join(dir, "encoder_mlp.pth"))
-        torch.save(self.decoder_mlp.state_dict(), os.path.join(dir, "decoder_mlp.pth"))
+        #torch.save(self.decoder_mlp.state_dict(), os.path.join(dir, "decoder_mlp.pth"))
         self.llm.save(dir)
 
     def load(self, dir):
         self.encoder_mlp.load_state_dict(torch.load(os.path.join(dir, "encoder_mlp.pth")))
-        self.decoder_mlp.load_state_dict(torch.load(os.path.join(dir, "decoder_mlp.pth")))
+        #self.decoder_mlp.load_state_dict(torch.load(os.path.join(dir, "decoder_mlp.pth")))
         self.llm.load(dir)
 
     def flow_forward(self, latent, return_all=False):
@@ -74,7 +74,7 @@ class Nesy(nn.Module):
     
     def flow_backward(self, params):
         #latent = params
-        latent = self.flow_net.inverse(params.to(torch.float)).to(torch.bfloat16)
+        latent = self.flow_net.inverse(params.to(torch.float)).to(torch.float32)
         return latent
 
     def encode(self, knowledge_ids):
@@ -86,7 +86,8 @@ class Nesy(nn.Module):
         return mean, log_var
     
     def compute_recon_loss(self, latent, labels, instance=None):
-        embedding = self.decoder_mlp(latent)#.to(self.args.decoder_device)
+        #embedding = self.decoder_mlp(latent)#.to(self.args.decoder_device)
+        embedding = latent
         if self.args.use_instance_in_decoder:
             instance_embedding = self.llm.decoder_model.model.embed_tokens(instance)
             outputs = self.llm.decode(embedding, labels, instance_embedding)
@@ -102,7 +103,7 @@ class Nesy(nn.Module):
             sampled_latent = self.reparameterize(context, torch.ones_like(context)).to(self.args.decoder_device)
         else:
             sampled_latent = context
-        embedding = self.decoder_mlp(sampled_latent)
+        embedding = sampled_latent#self.decoder_mlp(sampled_latent)
         if self.args.use_instance_in_decoder:
             instance_embedding = self.llm.decoder_model.model.embed_tokens(instance)
             sampled_ids = self.llm.predict_knowledge(embedding, instance_embedding)
@@ -112,7 +113,8 @@ class Nesy(nn.Module):
             # sampled_ids = self.llm.predict_knowledge(embedding, instance_embedding)
         #text = [self.llm.tokenizer.decode(k) for k in sampled_ids.tolist()[0]]
         text = self.llm.tokenizer.decode(sampled_ids.tolist()[0], skip_special_tokens=True)
-        
+        text = text.split("<|endoftext|>")[0]
+                
         return text
 
     def compute_kl_loss(self, mean, log_var):
@@ -181,7 +183,7 @@ class Nesy(nn.Module):
 
         knowledge_ids = self.llm.tokenizer(knowledge_batch, return_tensors="pt", add_special_tokens=True, padding="longest").input_ids.to(self.args.encoder_device)
         mean, log_var = self.encode(knowledge_ids)
-        
+
         reg_loss = self.compute_kl_loss(mean, log_var)
 
         sampled_latent = self.reparameterize(mean, log_var)
@@ -272,7 +274,7 @@ class Nesy(nn.Module):
                 knowledge_ids = self.llm.tokenizer(knowledge_batch[i], add_special_tokens=True, return_tensors="pt").input_ids.to(self.args.encoder_device)#(self.args.device)
                 mean, log_var = self.encode(knowledge_ids)
 
-                latent = mean[0].to(self.args.flow_device)
+                latent = mean[0].to(self.args.task_device)
                 
                 new_task_parameters = self.llm.allocate(latent)
                 
@@ -285,7 +287,7 @@ class Nesy(nn.Module):
                     "x": x_batch[i],
                     "y_true": y_batch[i],
                     "y_pred": y_pred,
-                    "score": evaluater(y_pred, y_batch[i])
+                    "score": evaluater(y_pred, y_batch[i], x_batch[i], knowledge_groundtruth[i])
                     })
 
         elif self.args.fuse_method == "p-tuning":

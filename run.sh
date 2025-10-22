@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# 在开始处理参数之前保存原始命令行参数
+ORIGINAL_ARGS="$@"
+
+pip install plotly
+export MAXFLYHUB_API_KEY="sk-Y8Eek9eur0AeYc2DuGwpHfiy1Kik52cdgxqCr8qdiWn8KBRv"
+
 cd patch
 bash install.sh
 cd ..
@@ -268,6 +274,9 @@ if [ -n "$target_modules" ]; then
 fi
 
 mkdir -p ./$meta_exp_dir/$exp_name
+
+# 保存执行bash脚本的完整命令
+echo "bash $0 $ORIGINAL_ARGS" > ./$meta_exp_dir/$exp_name/bash_command.txt
 
 echo "$python_cmd $args" > ./$meta_exp_dir/$exp_name/terminal.txt
 

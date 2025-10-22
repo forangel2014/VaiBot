@@ -1,5 +1,6 @@
 import copy
 import openai
+from openai import OpenAI
 import os
 import torch
 import datasets
@@ -14,7 +15,9 @@ import matplotlib.pyplot as plt
 import string
 from src.rouge import rouge_scorer
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+#openai.api_key = os.getenv("OPENAI_API_KEY")
+api_key = os.getenv("MAXFLYHUB_API_KEY")
+client = OpenAI(api_key=api_key, base_url="https://maxflyhub.com/v1")
 
 def mkdir(path):
     if not os.path.exists(path):
@@ -361,7 +364,7 @@ transformation B: {knowledge_pred}
                     response = None
                     while not response:
                         try:
-                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                            response = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
                         except:
                             pass
                     response = response.choices[0].message.content
@@ -494,7 +497,7 @@ transformation B: {knowledge_pred}
                     response = None
                     while not response:
                         try:
-                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                            response = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
                         except Exception as e:
                             print(e)
                             pass
@@ -531,7 +534,7 @@ predicted answer: {y_pred}
                     response = None
                     while not response:
                         try:
-                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                            response = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
                         except Exception as e:
                             print(e)
                             pass
@@ -657,7 +660,7 @@ transformation B: {knowledge_pred}
                     response = None
                     while not response:
                         try:
-                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                            response = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
                         except Exception as e:
                             print(e)
                             pass
@@ -694,7 +697,7 @@ predicted answer: {y_pred}
                     response = None
                     while not response:
                         try:
-                            response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                            response = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
                         except Exception as e:
                             print(e)
                             pass
@@ -919,7 +922,7 @@ transformation B: {knowledge_pred}
             response = None
             while not response:
                 try:
-                    response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                    response = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
                 except Exception as e:
                     print(e)
                     pass
@@ -956,7 +959,7 @@ predicted answer: {y_pred}
             response = None
             while not response:
                 try:
-                    response = openai.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
+                    response = client.chat.completions.create(model="gpt-4o-mini", messages=messages, temperature=0.0)
                 except Exception as e:
                     print(e)
                     pass
